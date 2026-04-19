@@ -4,6 +4,14 @@ import { fetchWithTimeout } from '@/lib/server/http'
 const CHAT_ENDPOINTS = ['/api/v1/chat', '/api/chat', '/chat'] as const
 const HEALTH_PATHS = ['/health', '/api/health', '/'] as const
 
+export type GatewayHealthResult =
+  | { online: true; checkedPath: (typeof HEALTH_PATHS)[number]; latencyMs: number }
+  | { online: false; latencyMs: number }
+
+export type GatewayMessageResult =
+  | { ok: true; endpoint: (typeof CHAT_ENDPOINTS)[number]; responseText: string }
+  | { ok: false; lastError: unknown }
+
 function gatewayHeaders(extra: Record<string, string> = {}) {
   const headers: Record<string, string> = { ...extra }
   if (serverConfig.gatewayToken) {
@@ -12,7 +20,7 @@ function gatewayHeaders(extra: Record<string, string> = {}) {
   return headers
 }
 
-export async function getGatewayHealth() {
+export async function getGatewayHealth(): Promise<GatewayHealthResult> {
   const startedAt = Date.now()
 
   for (const path of HEALTH_PATHS) {
@@ -42,7 +50,7 @@ export async function getGatewayHealth() {
   }
 }
 
-export async function sendGatewayMessage(message: string, workspace: string) {
+export async function sendGatewayMessage(message: string, workspace: string): Promise<GatewayMessageResult> {
   let lastError: unknown = null
 
   for (const endpoint of CHAT_ENDPOINTS) {
@@ -85,30 +93,4 @@ export async function sendGatewayMessage(message: string, workspace: string) {
     ok: false as const,
     lastError,
   }
-}
-
-export async function callGateway(params: {
-  method: string
-  path: string
-  searchParams?: string
-  body?: string
-  contentType?: string
-  accept?: string
-}) {
-  const { method, path, searchParams, body, contentType, accept } = params
-  const url = `${serverConfig.gatewayUrl}/${path}${searchParams ? `?${searchParams}` : ''}`
-
-  const headers: Record<string, string> = gatewayHeaders()
-  if (contentType) headers['Content-Type'] = contentType
-  if (accept) headers.Accept = accept
-
-  const response = await fetchWithTimeout(url, {
-    method,
-    headers,
-    body,
-    cache: 'no-store',
-    timeoutMs: 30_000,
-  })
-
-  return response
 }

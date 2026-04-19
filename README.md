@@ -5,7 +5,7 @@ Panel de control para interactuar con tu OpenClaw Gateway desde Vercel.
 ## Arquitectura
 
 ```text
-Navegador (red org) -> Next.js (Vercel) -> VPS 2.24.212.81:18789 (OpenClaw)
+Navegador -> Next.js (facade de producto) -> OpenClaw Gateway
 ```
 
 ## Setup local
@@ -36,28 +36,29 @@ vercel deploy
 1. Sube este proyecto a un repositorio de GitHub.
 2. Ve a https://vercel.com y conecta el repositorio.
 3. En `Environment Variables` agrega:
-   - `OPENCLAW_GATEWAY_URL` = `http://2.24.212.81:18789`
+   - `OPENCLAW_GATEWAY_URL` = `https://openclaw.midominio.com`
    - `OPENCLAW_TOKEN` = tu token si aplica
 
 ## Variables de entorno
 
 | Variable | Descripcion | Ejemplo |
 |---|---|---|
-| `OPENCLAW_GATEWAY_URL` | URL base del Gateway | `http://2.24.212.81:18789` |
+| `OPENCLAW_GATEWAY_URL` | URL base del Gateway (obligatoria en produccion) | `https://openclaw.midominio.com` |
 | `OPENCLAW_TOKEN` | Token de auth (opcional) | `mi_token` |
 
 ## Rutas API
 
 | Ruta | Metodo | Descripcion |
 |---|---|---|
-| `/api/gateway/status` | `GET` | Endpoint canonico para estado del Gateway |
-| `/api/health` | `GET` | Endpoint legado de compatibilidad (deprecated) |
-| `/api/chat` | `POST` | Envia mensajes al agente OpenClaw |
+| `/api/gateway/status` | `GET` | Endpoint canonico de estado para UI |
+| `/api/health` | `GET` | Healthcheck tecnico del servicio |
+| `/api/chat` | `POST` | API de producto para enviar mensajes (`{ message }`) |
 
 ## Notas de seguridad
 
 - No expongas `OPENCLAW_TOKEN` en frontend.
-- El acceso al Gateway ocurre por endpoints de producto (`/api/gateway/status`, `/api/chat`), no por proxy universal.
+- El acceso al Gateway ocurre por endpoints de producto (`/api/gateway/status`, `/api/chat`).
+- En produccion usa un endpoint HTTPS estable para `OPENCLAW_GATEWAY_URL`.
 
 ## Buenas practicas aplicadas
 
@@ -74,6 +75,7 @@ vercel deploy
 - Rate limiting en memoria para `/api/chat`.
 - Limite de tamano de request:
   - `/api/chat`: 16KB
+- `app/page.tsx` queda delgado y los componentes interactivos se aislan en `components/*`.
 - Manejo de errores consistente y sin filtrar detalles sensibles en produccion.
 - Configuracion centralizada de entorno y utilidades server compartidas (`lib/server/*`) para facilitar mantenimiento.
 - Cliente interno unificado de integracion OpenClaw (`lib/server/openclaw-client.ts`).

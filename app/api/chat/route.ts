@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic'
 const MAX_MESSAGE_LENGTH = 2000
 const MAX_REQUEST_SIZE = 16 * 1024
 const RATE_LIMIT = { limit: 20, windowMs: 60_000 } as const
+const WORKSPACE_CONTEXT = 'workspace'
 
 export async function POST(req: NextRequest) {
   if (getContentLength(req) > MAX_REQUEST_SIZE) {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     return res
   }
 
-  let payload: { message?: unknown; workspace?: unknown }
+  let payload: { message?: unknown }
   try {
     payload = await req.json()
   } catch {
@@ -40,11 +41,7 @@ export async function POST(req: NextRequest) {
     return jsonError('El mensaje es obligatorio.', 400)
   }
 
-  const workspace = typeof payload.workspace === 'string' && payload.workspace.trim()
-    ? payload.workspace.trim()
-    : 'workspace'
-
-  const result = await sendGatewayMessage(message, workspace)
+  const result = await sendGatewayMessage(message, WORKSPACE_CONTEXT)
   if (result.ok) {
     return jsonSuccess({ response: result.responseText, endpoint: result.endpoint })
   }
