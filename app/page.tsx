@@ -1,29 +1,27 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-  BriefcaseMedical,
-  Home as HomeIcon,
-  LayoutDashboard,
-  MessageSquare,
-  FolderLock,
-  Settings,
-  Bot,
   Activity,
   AlertTriangle,
-  Send,
-  CloudRain,
-  FileText,
-  Search,
   Bell,
+  Bot,
+  CheckCircle2,
+  FileText,
+  FolderLock,
+  LayoutDashboard,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
   TerminalSquare,
   Wifi,
   WifiOff,
-  Loader2,
-  RefreshCw,
 } from 'lucide-react'
 
-type Workspace = 'hospital' | 'personal'
 type GatewayStatus = 'checking' | 'online' | 'offline'
 
 interface ChatMessage {
@@ -39,68 +37,32 @@ interface ActivityItem {
   status: 'loading' | 'success' | 'warning'
 }
 
+const activityFeed: ActivityItem[] = [
+  { id: 1, time: '09:58', text: 'Analizando reporte mensual SAP ERP', status: 'loading' },
+  { id: 2, time: '08:30', text: 'Extraccion de datos SICOP completada', status: 'success' },
+  { id: 3, time: '06:15', text: 'Alerta: discrepancia en stock de reactivos', status: 'warning' },
+]
+
+const pendingTasks = [
+  {
+    id: 1,
+    title: 'Validar borrador de compra',
+    desc: 'Equipos de monitoreo esteril (Art. 14 LGCP)',
+    icon: <FileText size={17} className="text-blue-600" />,
+  },
+  {
+    id: 2,
+    title: 'Revisar alerta de stock',
+    desc: 'Reactivos de laboratorio por debajo del 10%',
+    icon: <AlertTriangle size={17} className="text-amber-600" />,
+  },
+]
+
 export default function Dashboard() {
-  const [workspace, setWorkspace] = useState<Workspace>('hospital')
   const [inputText, setInputText] = useState('')
   const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus>('checking')
   const [isSending, setIsSending] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
-
-  const theme = {
-    hospital: {
-      bg: 'bg-slate-50',
-      primary: 'bg-blue-700',
-      primaryHover: 'hover:bg-blue-800',
-      textPrimary: 'text-blue-700',
-      sidebar: 'bg-slate-900',
-      sidebarHover: 'hover:bg-slate-800',
-      icon: 'text-blue-400',
-      badge: 'bg-blue-100 text-blue-700',
-      activeNav: 'bg-blue-600',
-    },
-    personal: {
-      bg: 'bg-stone-50',
-      primary: 'bg-emerald-700',
-      primaryHover: 'hover:bg-emerald-800',
-      textPrimary: 'text-emerald-700',
-      sidebar: 'bg-emerald-950',
-      sidebarHover: 'hover:bg-emerald-900',
-      icon: 'text-emerald-400',
-      badge: 'bg-emerald-100 text-emerald-700',
-      activeNav: 'bg-emerald-600',
-    },
-  }
-
-  const currentTheme = theme[workspace]
-
-  const dailyBriefing = {
-    hospital: 'Dr. Tencio, el inventario de la farmacia tiene 2 discrepancias detectadas esta madrugada. He preparado un borrador de justificación para la CCSS basado en la LGCP. Hay 1 mensaje nuevo de un proveedor en SICOP.',
-    personal: 'Buen día. Hoy no hay pronóstico de lluvia (0% prob.), es un momento óptimo para aplicar el herbicida en el muro sur. Tu pedido de maceteros llega hoy por la tarde.',
-  }
-
-  const agentActivity: Record<Workspace, ActivityItem[]> = {
-    hospital: [
-      { id: 1, time: '09:58 AM', text: 'Analizando reporte mensual SAP ERP...', status: 'loading' },
-      { id: 2, time: '08:30 AM', text: 'Extracción de datos SICOP completada.', status: 'success' },
-      { id: 3, time: '06:15 AM', text: 'Alerta: Discrepancia en stock de reactivos.', status: 'warning' },
-    ],
-    personal: [
-      { id: 1, time: '10:00 AM', text: 'Monitoreando API Meteorológica (IMN)...', status: 'loading' },
-      { id: 2, time: '09:15 AM', text: 'Lectura de recibo de luz (PDF) procesada.', status: 'success' },
-      { id: 3, time: 'Ayer', text: 'Recordatorio de riego de plantas guardado.', status: 'success' },
-    ],
-  }
-
-  const pendingTasks = {
-    hospital: [
-      { id: 1, title: 'Validar Borrador de Compra', desc: 'Equipos de monitoreo estéril (Art. 14 LGCP)', icon: <FileText size={18} className="text-blue-500" /> },
-      { id: 2, title: 'Revisar Alerta de Stock', desc: 'Reactivos de laboratorio por debajo del 10%', icon: <AlertTriangle size={18} className="text-amber-500" /> },
-    ],
-    personal: [
-      { id: 1, title: 'Control de Malezas', desc: 'Aplicar tratamiento en zona del muro (Clima óptimo)', icon: <CloudRain size={18} className="text-emerald-500" /> },
-      { id: 2, title: 'Pagar Servicios', desc: 'Recibo eléctrico vence en 2 días', icon: <FileText size={18} className="text-stone-500" /> },
-    ],
-  }
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -110,50 +72,47 @@ export default function Dashboard() {
     },
   ])
 
-  // Verificar estado del Gateway al cargar y cada 30 segundos
   const checkGateway = async () => {
     setGatewayStatus('checking')
     try {
       const res = await fetch('/api/health', { cache: 'no-store' })
       const data = await res.json()
+
       if (data.status === 'online') {
         setGatewayStatus('online')
-        // Actualizar mensaje inicial si es la primera vez
-        setChatMessages(prev => {
+        setChatMessages((prev) => {
           if (prev.length === 1 && prev[0].text.includes('Conectando')) {
-            return [{
-              role: 'assistant',
-              text: 'Hola, Dr. Tencio. OpenClaw está en línea y conectado al VPS. ¿En qué te puedo asistir hoy?',
-              timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
-            }]
+            return [
+              {
+                role: 'assistant',
+                text: 'Gateway en linea. Sistema operativo y listo para ejecutar tareas.',
+                timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
+              },
+            ]
           }
           return prev
         })
-      } else {
-        setGatewayStatus('offline')
-        setChatMessages(prev => {
-          if (prev.length === 1 && prev[0].text.includes('Conectando')) {
-            return [{
-              role: 'error',
-              text: '⚠️ No se pudo conectar con el Gateway de OpenClaw en el VPS. Verifica que el servicio esté corriendo.',
-              timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
-            }]
-          }
-          return prev
-        })
+        return
       }
+
+      setGatewayStatus('offline')
     } catch {
       setGatewayStatus('offline')
     }
   }
 
   useEffect(() => {
-    checkGateway()
-    const interval = setInterval(checkGateway, 30000)
-    return () => clearInterval(interval)
+    const runHealthCheck = () => {
+      void checkGateway()
+    }
+    const initial = setTimeout(runHealthCheck, 0)
+    const interval = setInterval(runHealthCheck, 30000)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(interval)
+    }
   }, [])
 
-  // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
@@ -168,7 +127,7 @@ export default function Dashboard() {
       timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
     }
 
-    setChatMessages(prev => [...prev, userMsg])
+    setChatMessages((prev) => [...prev, userMsg])
     setInputText('')
     setIsSending(true)
 
@@ -176,300 +135,306 @@ export default function Dashboard() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: inputText, workspace }),
+        body: JSON.stringify({ message: inputText, workspace: 'workspace' }),
       })
 
       const data = await res.json()
 
       const assistantMsg: ChatMessage = {
         role: data.success ? 'assistant' : 'error',
-        text: data.success
-          ? data.response
-          : `⚠️ ${data.error || 'Error al comunicarse con OpenClaw'}`,
+        text: data.success ? data.response : `${data.error || 'Error al comunicarse con OpenClaw'}`,
         timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
       }
 
-      setChatMessages(prev => [...prev, assistantMsg])
+      setChatMessages((prev) => [...prev, assistantMsg])
     } catch {
-      setChatMessages(prev => [...prev, {
-        role: 'error',
-        text: '⚠️ Error de red al contactar el servidor.',
-        timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
-      }])
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'error',
+          text: 'Error de red al contactar el servidor.',
+          timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
+        },
+      ])
     } finally {
       setIsSending(false)
     }
   }
 
-  const StatusBadge = () => {
-    if (gatewayStatus === 'checking') return (
-      <span className="flex items-center text-xs text-yellow-400">
-        <Loader2 size={10} className="mr-1 animate-spin" /> Verificando...
-      </span>
-    )
-    if (gatewayStatus === 'online') return (
-      <span className="flex items-center text-xs text-green-400">
-        <span className="w-2 h-2 rounded-full bg-green-400 mr-1.5 animate-pulse" />
-        VPS Conectado
-      </span>
-    )
-    return (
-      <span className="flex items-center text-xs text-red-400">
-        <span className="w-2 h-2 rounded-full bg-red-400 mr-1.5" />
-        VPS Desconectado
-      </span>
-    )
-  }
-
   return (
-    <div className={`flex h-screen w-full font-sans ${currentTheme.bg} transition-colors duration-500`}>
-
-      {/* Sidebar */}
-      <aside className={`w-64 flex flex-col ${currentTheme.sidebar} text-white transition-colors duration-500`}>
-        {/* Selector de Workspace */}
-        <div className="p-4 border-b border-white/10">
-          <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-semibold">Entorno Activo</p>
-          <div className="flex bg-black/20 rounded-lg p-1">
-            <button
-              onClick={() => setWorkspace('hospital')}
-              className={`flex-1 flex items-center justify-center py-2 rounded-md text-sm transition-all ${workspace === 'hospital' ? 'bg-blue-600 shadow-md' : 'hover:bg-white/10'}`}
-            >
-              <BriefcaseMedical size={16} className="mr-2" />
-              Gestión
-            </button>
-            <button
-              onClick={() => setWorkspace('personal')}
-              className={`flex-1 flex items-center justify-center py-2 rounded-md text-sm transition-all ${workspace === 'personal' ? 'bg-emerald-600 shadow-md' : 'hover:bg-white/10'}`}
-            >
-              <HomeIcon size={16} className="mr-2" />
-              Personal
-            </button>
+    <div className="min-h-screen p-2 sm:p-3 md:p-6">
+      <div className="mx-auto flex min-h-[calc(100vh-1rem)] max-w-[1500px] overflow-hidden rounded-2xl border border-[#d8e0f2] bg-white/80 shadow-[0_20px_60px_-28px_rgba(19,35,74,0.45)] backdrop-blur md:min-h-[calc(100vh-2rem)] md:rounded-[28px]">
+        <aside className="hidden w-72 shrink-0 border-r border-[#d8e0f2] bg-gradient-to-b from-[#0b1733] to-[#0c2149] p-5 text-white lg:flex lg:flex-col">
+          <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100/70">OpenClaw Node</p>
+            <p className="mt-1 text-lg font-semibold">Workspace</p>
+            <p className="mt-2 text-sm text-blue-100/80">Entorno de trabajo unico</p>
           </div>
-        </div>
 
-        {/* Menú */}
-        <nav className="flex-1 py-6 px-3 space-y-1">
-          <a href="#" className={`flex items-center px-3 py-2.5 rounded-lg bg-white/10 ${currentTheme.icon} font-medium`}>
-            <LayoutDashboard size={20} className="mr-3" /> Dashboard
-          </a>
-          <a href="#" className={`flex items-center px-3 py-2.5 rounded-lg ${currentTheme.sidebarHover} text-white/80 transition-colors`}>
-            <MessageSquare size={20} className="mr-3" /> Terminal IA
-          </a>
-          <a href="#" className={`flex items-center px-3 py-2.5 rounded-lg ${currentTheme.sidebarHover} text-white/80 transition-colors`}>
-            <FolderLock size={20} className="mr-3" /> Bóveda Segura
-          </a>
-          <a href="#" className={`flex items-center px-3 py-2.5 rounded-lg ${currentTheme.sidebarHover} text-white/80 transition-colors`}>
-            <TerminalSquare size={20} className="mr-3" /> Reglas y Skills
-          </a>
-        </nav>
+          <nav className="mt-6 space-y-1">
+            <a href="#" className="flex items-center rounded-xl bg-white/15 px-3 py-2.5 text-sm font-medium">
+              <LayoutDashboard size={18} className="mr-2.5 text-cyan-300" /> Dashboard
+            </a>
+            <a href="#" className="flex items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10">
+              <MessageSquare size={18} className="mr-2.5" /> Terminal IA
+            </a>
+            <a href="#" className="flex items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10">
+              <FolderLock size={18} className="mr-2.5" /> Boveda segura
+            </a>
+            <a href="#" className="flex items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10">
+              <Settings size={18} className="mr-2.5" /> Configuracion
+            </a>
+          </nav>
 
-        {/* Perfil */}
-        <div className="p-4 border-t border-white/10">
-          <button
-            onClick={checkGateway}
-            className={`w-full flex items-center px-3 py-2 rounded-lg ${currentTheme.sidebarHover} text-white/80 transition-colors mb-2`}
-          >
-            {gatewayStatus === 'online' ? <Wifi size={20} className="mr-3 text-green-400" /> : <WifiOff size={20} className="mr-3 text-red-400" />}
-            Reconectar VPS
-          </button>
-          <a href="#" className={`flex items-center px-3 py-2 rounded-lg ${currentTheme.sidebarHover} text-white/80 transition-colors`}>
-            <Settings size={20} className="mr-3" /> Configuración
-          </a>
-          <div className="flex items-center mt-4 px-3">
-            <div className={`w-8 h-8 rounded-full ${currentTheme.primary} flex items-center justify-center font-bold mr-3`}>
-              T
+          <div className="mt-auto rounded-2xl border border-white/20 bg-white/10 p-4">
+            <div className="flex items-center">
+              <div className="mr-3 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 font-semibold">T</div>
+              <div>
+                <p className="text-sm font-medium">Dr. Tencio</p>
+                <p className="text-xs text-blue-100/80">Direccion medica</p>
+              </div>
             </div>
+          </div>
+        </aside>
+
+        <main className="flex min-w-0 flex-1 flex-col">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8e0f2] px-3 py-3 sm:px-4 md:px-6 md:py-4">
             <div>
-              <p className="text-sm font-medium">Dr. Tencio</p>
-              <StatusBadge />
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[#4b5f81]">Panel operativo</p>
+              <h1 className="text-xl font-semibold text-[#071226] md:text-2xl">Centro de mando OpenClaw</h1>
             </div>
-          </div>
-        </div>
-      </aside>
 
-      {/* Contenido Principal */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-10">
-          <h1 className="text-xl font-semibold text-gray-800">
-            {workspace === 'hospital' ? 'Panel de Operaciones CCSS' : 'Panel Personal y Hogar'}
-          </h1>
-          <div className="flex items-center space-x-4 text-gray-500">
-            <div className="relative">
-              <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
+              <div className="relative hidden sm:block">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7b8dab]" />
+                <input
+                  type="text"
+                  placeholder="Buscar documentos u oficios"
+                  className="w-64 rounded-xl border border-[#d8e0f2] bg-white px-10 py-2.5 text-sm outline-none transition focus:border-[#2058ff]"
+                />
+              </div>
+              <button className="relative rounded-xl border border-[#d8e0f2] bg-white p-2.5 text-[#4b5f81] transition hover:border-[#b8c5df] hover:text-[#071226]">
+                <Bell size={16} />
+                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#f34343]" />
+              </button>
+              <button
+                onClick={checkGateway}
+                className="rounded-xl border border-[#d8e0f2] bg-white p-2.5 text-[#4b5f81] transition hover:border-[#b8c5df] hover:text-[#071226]"
+              >
+                <RefreshCw size={16} />
+              </button>
+            </div>
+
+            <div className="relative w-full sm:hidden">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7b8dab]" />
               <input
                 type="text"
-                placeholder="Buscar documentos, oficios..."
-                className="pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-64 transition-all"
+                placeholder="Buscar..."
+                className="w-full rounded-xl border border-[#d8e0f2] bg-white px-10 py-2.5 text-sm outline-none transition focus:border-[#2058ff]"
               />
             </div>
-            <button className="p-2 hover:bg-gray-100 rounded-full relative">
-              <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-            </button>
-            {/* Indicador de estado en header */}
-            <div className={`flex items-center text-xs px-3 py-1.5 rounded-full font-medium ${
-              gatewayStatus === 'online' ? 'bg-green-100 text-green-700' :
-              gatewayStatus === 'offline' ? 'bg-red-100 text-red-700' :
-              'bg-yellow-100 text-yellow-700'
-            }`}>
-              {gatewayStatus === 'online' && <><span className="w-2 h-2 rounded-full bg-green-500 mr-1.5 animate-pulse" />Gateway Online</>}
-              {gatewayStatus === 'offline' && <><span className="w-2 h-2 rounded-full bg-red-500 mr-1.5" />Gateway Offline</>}
-              {gatewayStatus === 'checking' && <><Loader2 size={10} className="mr-1.5 animate-spin" />Verificando</>}
-            </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Widgets */}
-        <div className="flex-1 overflow-auto p-6 flex gap-6">
+          <nav className="flex items-center gap-1.5 overflow-x-auto border-b border-[#d8e0f2] bg-[#f9fbff] px-3 py-2 text-xs text-[#3f5375] lg:hidden">
+            <a href="#" className="whitespace-nowrap rounded-lg border border-[#d8e0f2] bg-white px-2.5 py-1.5 font-medium text-[#182845]">
+              Dashboard
+            </a>
+            <a href="#" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">
+              Terminal IA
+            </a>
+            <a href="#" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">
+              Boveda
+            </a>
+            <a href="#" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">
+              Configuracion
+            </a>
+          </nav>
 
-          {/* Columna Izquierda */}
-          <div className="flex-1 flex flex-col space-y-6">
-
-            {/* Daily Briefing */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
-              <div className={`absolute top-0 left-0 w-2 h-full ${currentTheme.primary}`} />
-              <h2 className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                <Bot size={22} className={`mr-2 ${currentTheme.textPrimary}`} />
-                Resumen Matutino OpenClaw
-              </h2>
-              <p className="text-gray-600 leading-relaxed">{dailyBriefing[workspace]}</p>
-            </div>
-
-            {/* Tareas Pendientes */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-1">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Acciones Requeridas</h2>
-                <button className={`text-sm font-medium ${currentTheme.textPrimary}`}>Ver todas</button>
-              </div>
-              <div className="space-y-3">
-                {pendingTasks[workspace].map(task => (
-                  <div key={task.id} className="flex items-start p-3 hover:bg-gray-50 rounded-xl transition-colors border border-gray-50 group cursor-pointer">
-                    <div className="mt-0.5 p-2 bg-gray-100 rounded-lg group-hover:bg-white transition-colors">
-                      {task.icon}
-                    </div>
-                    <div className="ml-3 flex-1">
-                      <p className="text-sm font-medium text-gray-800">{task.title}</p>
-                      <p className="text-xs text-gray-500">{task.desc}</p>
-                    </div>
-                    <button className="text-xs px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-100 font-medium text-gray-600">
-                      Revisar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Columna Derecha */}
-          <div className="w-1/3 flex flex-col space-y-6 min-w-[350px]">
-
-            {/* Monitor VPS */}
-            <div className="bg-slate-900 text-gray-300 p-5 rounded-2xl shadow-lg border border-slate-800 font-mono text-sm">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-700">
-                <div className="flex items-center text-slate-100 font-sans font-medium">
-                  <Activity size={18} className="mr-2 text-green-400" />
-                  Monitor del VPS
+          <section className="grid min-h-0 flex-1 gap-4 p-3 sm:p-4 md:grid-cols-[1.1fr_0.9fr] md:gap-6 md:p-6">
+            <div className="min-h-0 space-y-4 md:space-y-6">
+              <article className="overflow-hidden rounded-2xl border border-[#d8e0f2] bg-gradient-to-br from-[#ffffff] via-[#f2f6ff] to-[#eef4ff] p-5 shadow-sm md:p-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="flex items-center text-lg font-semibold text-[#071226]">
+                    <Bot size={19} className="mr-2 text-[#2058ff]" /> Resumen matutino
+                  </h2>
+                  <span className="rounded-full border border-[#c6d3ef] bg-white/80 px-2.5 py-1 text-xs text-[#3f5375]">Modo workspace</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-wider bg-slate-800 px-2 py-1 rounded text-slate-400">En vivo</span>
-                  <button onClick={checkGateway} className="p-1 hover:bg-slate-700 rounded transition-colors">
-                    <RefreshCw size={12} className="text-slate-400" />
-                  </button>
+                <p className="max-w-3xl leading-relaxed text-[#334362]">
+                  Dr. Tencio, el inventario de farmacia reporta 2 discrepancias detectadas en la madrugada. Hay un borrador de
+                  justificacion listo para revision y un mensaje nuevo del proveedor en SICOP.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-lg border border-[#c6d3ef] bg-white px-2.5 py-1 text-xs text-[#3f5375]">LGCP</span>
+                  <span className="rounded-lg border border-[#c6d3ef] bg-white px-2.5 py-1 text-xs text-[#3f5375]">SICOP</span>
+                  <span className="rounded-lg border border-[#c6d3ef] bg-white px-2.5 py-1 text-xs text-[#3f5375]">SAP ERP</span>
                 </div>
-              </div>
-              <div className="space-y-3">
-                {agentActivity[workspace].map(activity => (
-                  <div key={activity.id} className="flex items-start">
-                    <span className="text-slate-500 mr-3 shrink-0 text-xs">{activity.time}</span>
-                    <span className={`flex-1 text-xs ${
-                      activity.status === 'success' ? 'text-slate-300' :
-                      activity.status === 'warning' ? 'text-amber-400' :
-                      'text-blue-300 animate-pulse'
-                    }`}>
-                      {activity.status === 'loading' ? '> ' : ''}{activity.text}
-                    </span>
+              </article>
+
+              <article className="rounded-2xl border border-[#d8e0f2] bg-white p-5 shadow-sm md:p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-[#071226]">Acciones requeridas</h2>
+                  <button className="text-sm font-medium text-[#2058ff]">Ver todas</button>
+                </div>
+                <div className="space-y-3">
+                  {pendingTasks.map((task) => (
+                    <div key={task.id} className="group flex items-start rounded-xl border border-[#ebf0fa] bg-[#fbfdff] p-3 transition hover:border-[#d3def3] hover:bg-white">
+                      <div className="mt-0.5 rounded-lg border border-[#d8e0f2] bg-white p-2">{task.icon}</div>
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-medium text-[#182845]">{task.title}</p>
+                        <p className="text-xs text-[#56698b]">{task.desc}</p>
+                      </div>
+                      <button className="rounded-full border border-[#d8e0f2] px-3 py-1 text-xs font-medium text-[#3f5375] transition group-hover:border-[#b8c5df]">
+                        Revisar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="rounded-2xl border border-[#d8e0f2] bg-white p-5 shadow-sm md:p-6">
+                <h2 className="mb-4 flex items-center text-lg font-semibold text-[#071226]">
+                  <ShieldCheck size={19} className="mr-2 text-[#2058ff]" /> Estado de seguridad
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[#d8e0f2] bg-[#f9fbff] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#5d7091]">Gateway</p>
+                    <p className="mt-1 text-sm font-semibold text-[#182845]">{gatewayStatus === 'online' ? 'Conectado' : gatewayStatus === 'offline' ? 'Sin conexion' : 'Verificando'}</p>
                   </div>
-                ))}
-              </div>
-              {/* Estado real del gateway */}
-              <div className={`mt-4 pt-3 border-t border-slate-700 text-xs flex items-center ${
-                gatewayStatus === 'online' ? 'text-green-400' :
-                gatewayStatus === 'offline' ? 'text-red-400' : 'text-yellow-400'
-              }`}>
-                {gatewayStatus === 'online' && <><span className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />2.24.212.81:18789 — Conectado</>}
-                {gatewayStatus === 'offline' && <><span className="w-2 h-2 rounded-full bg-red-400 mr-2" />2.24.212.81:18789 — Sin conexión</>}
-                {gatewayStatus === 'checking' && <><Loader2 size={10} className="mr-2 animate-spin" />Verificando conexión...</>}
-              </div>
+                  <div className="rounded-xl border border-[#d8e0f2] bg-[#f9fbff] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#5d7091]">Proxy</p>
+                    <p className="mt-1 text-sm font-semibold text-[#182845]">Protegido por secret</p>
+                  </div>
+                  <div className="rounded-xl border border-[#d8e0f2] bg-[#f9fbff] p-3">
+                    <p className="text-xs uppercase tracking-wide text-[#5d7091]">Contexto</p>
+                    <p className="mt-1 text-sm font-semibold text-[#182845]">Workspace unico</p>
+                  </div>
+                </div>
+              </article>
             </div>
 
-            {/* Chat IA */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800 flex items-center">
-                  <TerminalSquare size={18} className={`mr-2 ${currentTheme.textPrimary}`} />
-                  Asistente IA
-                </h3>
-                <span className={`text-xs px-2 py-1 rounded-full ${currentTheme.badge}`}>
-                  Modo: {workspace === 'hospital' ? 'Institucional' : 'Personal'}
-                </span>
-              </div>
+            <div className="min-h-0 space-y-4 md:space-y-6">
+              <article className="rounded-2xl border border-[#1e2f53] bg-[#0b1733] p-5 text-[#d5def2] shadow-[0_20px_45px_-35px_rgba(7,18,38,1)] md:p-6">
+                <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
+                  <h2 className="flex items-center text-sm font-semibold text-white">
+                    <Activity size={16} className="mr-2 text-cyan-300" /> Monitor VPS
+                  </h2>
+                  <span className="rounded bg-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-cyan-100">En vivo</span>
+                </div>
 
-              {/* Mensajes */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
-                {chatMessages.map((msg, i) => (
-                  <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
-                      msg.role === 'user'
-                        ? `${currentTheme.primary} text-white rounded-tr-sm`
-                        : msg.role === 'error'
-                        ? 'bg-red-50 border border-red-200 text-red-700 rounded-tl-sm'
-                        : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm'
-                    }`}>
-                      {msg.text}
+                <div className="space-y-2.5 font-mono-ui text-xs">
+                  {activityFeed.map((item) => (
+                    <div key={item.id} className="flex items-start">
+                      <span className="mr-3 shrink-0 text-[#8194ba]">{item.time}</span>
+                      <span
+                        className={
+                          item.status === 'success'
+                            ? 'text-[#b6c4e2]'
+                            : item.status === 'warning'
+                              ? 'text-[#f3c27b]'
+                              : 'animate-pulse text-[#93bbff]'
+                        }
+                      >
+                        {item.status === 'loading' ? '> ' : ''}
+                        {item.text}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-gray-400 mt-1 px-1">{msg.timestamp}</span>
-                  </div>
-                ))}
-                {isSending && (
-                  <div className="flex items-start">
-                    <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                      <div className="flex space-x-1">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  ))}
+                </div>
+
+                <div
+                  className={`mt-4 flex flex-wrap items-center border-t border-white/10 pt-3 text-xs ${
+                    gatewayStatus === 'online' ? 'text-[#73e6bf]' : gatewayStatus === 'offline' ? 'text-[#ff7f7f]' : 'text-[#f3c27b]'
+                  }`}
+                >
+                  {gatewayStatus === 'online' && (
+                    <>
+                      <Wifi size={13} className="mr-2" /> 2.24.212.81:18789 - Conectado
+                    </>
+                  )}
+                  {gatewayStatus === 'offline' && (
+                    <>
+                      <WifiOff size={13} className="mr-2" /> 2.24.212.81:18789 - Sin conexion
+                    </>
+                  )}
+                  {gatewayStatus === 'checking' && (
+                    <>
+                      <Loader2 size={13} className="mr-2 animate-spin" /> Verificando conexion
+                    </>
+                  )}
+                </div>
+              </article>
+
+              <article className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-[#d8e0f2] bg-white shadow-sm md:min-h-[420px]">
+                <div className="flex items-center justify-between border-b border-[#e6ecfa] bg-[#f7f9ff] px-4 py-3">
+                  <h2 className="flex items-center text-sm font-semibold text-[#182845]">
+                    <TerminalSquare size={17} className="mr-2 text-[#2058ff]" /> Asistente IA
+                  </h2>
+                  <span className="rounded-full border border-[#d8e0f2] bg-white px-2.5 py-1 text-xs text-[#3f5375]">Conectado a OpenClaw</span>
+                </div>
+
+                <div className="flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,#f7faff_0%,#f9fbff_100%)] p-4">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                      <div
+                        className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-sm ${
+                          msg.role === 'user'
+                            ? 'rounded-tr-sm bg-[#2058ff] text-white'
+                            : msg.role === 'error'
+                              ? 'rounded-tl-sm border border-[#f5c7c7] bg-[#fff4f4] text-[#9f3e3e]'
+                              : 'rounded-tl-sm border border-[#dde6f8] bg-white text-[#223354] shadow-sm'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="mt-1 px-1 text-[10px] text-[#7b8dab]">{msg.timestamp}</span>
+                    </div>
+                  ))}
+
+                  {isSending && (
+                    <div className="flex items-start">
+                      <div className="rounded-2xl rounded-tl-sm border border-[#dde6f8] bg-white px-4 py-3 shadow-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Loader2 size={14} className="animate-spin text-[#2058ff]" />
+                          <span className="text-xs text-[#4f6285]">Procesando respuesta...</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
 
-              {/* Input */}
-              <div className="p-3 bg-white border-t border-gray-100">
-                <form onSubmit={handleSendMessage} className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={e => setInputText(e.target.value)}
-                    placeholder="Pídele a OpenClaw que ejecute una tarea..."
-                    disabled={isSending}
-                    className="w-full pl-4 pr-12 py-3 bg-gray-100 border-transparent rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white transition-all disabled:opacity-60"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSending || !inputText.trim()}
-                    className={`absolute right-2 p-2 rounded-lg ${currentTheme.primary} ${currentTheme.primaryHover} text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  </button>
-                </form>
-              </div>
+                <div className="border-t border-[#e6ecfa] bg-white p-3">
+                  <form onSubmit={handleSendMessage} className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      placeholder="Solicita una accion al asistente..."
+                      disabled={isSending}
+                      className="w-full rounded-xl border border-[#d8e0f2] bg-[#f8fbff] py-3 pl-3.5 pr-12 text-sm outline-none transition focus:border-[#2058ff] focus:bg-white disabled:opacity-60"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSending || !inputText.trim()}
+                      className="absolute right-2 rounded-lg bg-[#2058ff] p-2 text-white transition hover:bg-[#1a4ad4] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    </button>
+                  </form>
+                </div>
+              </article>
             </div>
+          </section>
 
-          </div>
-        </div>
-      </main>
+          <footer className="flex flex-col items-start gap-1.5 border-t border-[#d8e0f2] px-3 py-3 text-xs text-[#5d7091] sm:flex-row sm:items-center sm:justify-between sm:px-4 md:px-6">
+            <div className="flex items-center gap-2">
+              {gatewayStatus === 'online' ? <CheckCircle2 size={14} className="text-[#10976f]" /> : <AlertTriangle size={14} className="text-[#c9861b]" />}
+              Estado del sistema supervisado cada 30 segundos
+            </div>
+            <span className="font-mono-ui">OpenClaw Dashboard</span>
+          </footer>
+        </main>
+      </div>
     </div>
   )
 }

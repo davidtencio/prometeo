@@ -1,11 +1,11 @@
-# OpenClaw Dashboard — Next.js
+# OpenClaw Dashboard - Next.js
 
 Panel de control para interactuar con tu OpenClaw Gateway desde Vercel.
 
 ## Arquitectura
 
-```
-Tu navegador (red org) → Vercel (proxy) → VPS 2.24.212.81:18789 (OpenClaw)
+```text
+Navegador (red org) -> Next.js (Vercel) -> VPS 2.24.212.81:18789 (OpenClaw)
 ```
 
 ## Setup local
@@ -24,39 +24,61 @@ npm run dev
 
 ## Deploy en Vercel
 
-### Opción A — Vercel CLI
+### Opcion A - Vercel CLI
+
 ```bash
 npm i -g vercel
 vercel deploy
 ```
 
-### Opción B — GitHub + Vercel Dashboard
-1. Sube este proyecto a un repositorio de GitHub
-2. Ve a https://vercel.com y conecta el repositorio
-3. En "Environment Variables" agrega:
+### Opcion B - GitHub + Vercel Dashboard
+
+1. Sube este proyecto a un repositorio de GitHub.
+2. Ve a https://vercel.com y conecta el repositorio.
+3. En `Environment Variables` agrega:
    - `OPENCLAW_GATEWAY_URL` = `http://2.24.212.81:18789`
-   - `OPENCLAW_TOKEN` = (tu token si lo tienes)
-   - `PROXY_SECRET` = (una clave secreta aleatoria)
-4. Deploy 🚀
+   - `OPENCLAW_TOKEN` = tu token si aplica
+   - `PROXY_SECRET` = una clave secreta aleatoria
+   - `PROXY_ALLOWED_ORIGINS` = lista de origenes permitidos separada por comas (opcional)
 
 ## Variables de entorno
 
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
-| `OPENCLAW_GATEWAY_URL` | URL del Gateway | `http://2.24.212.81:18789` |
-| `OPENCLAW_TOKEN` | Token de auth (opcional) | `mi_token_secreto` |
-| `PROXY_SECRET` | Protege el proxy de Vercel | `clave_aleatoria_larga` |
+| Variable | Descripcion | Ejemplo |
+|---|---|---|
+| `OPENCLAW_GATEWAY_URL` | URL base del Gateway | `http://2.24.212.81:18789` |
+| `OPENCLAW_TOKEN` | Token de auth (opcional) | `mi_token` |
+| `PROXY_SECRET` | Protege `/api/proxy/*` | `clave_larga_aleatoria` |
+| `PROXY_ALLOWED_ORIGINS` | Origenes CORS permitidos (opcional) | `https://mi-app.vercel.app` |
 
 ## Rutas API
 
-| Ruta | Método | Descripción |
-|------|--------|-------------|
-| `/api/health` | GET | Verifica si el Gateway está online |
-| `/api/chat` | POST | Envía mensajes al agente OpenClaw |
-| `/api/proxy/[...path]` | GET/POST/PUT/DELETE | Proxy universal al Gateway |
+| Ruta | Metodo | Descripcion |
+|---|---|---|
+| `/api/health` | `GET` | Verifica conectividad del Gateway |
+| `/api/chat` | `POST` | Envia mensajes al agente OpenClaw |
+| `/api/proxy/[...path]` | `GET/POST/PUT/PATCH/DELETE/OPTIONS` | Proxy universal al Gateway |
 
 ## Notas de seguridad
 
-- El `PROXY_SECRET` protege las rutas `/api/proxy/*` para que solo tu app pueda usarlas
-- Nunca expongas el `OPENCLAW_TOKEN` en el frontend
-- Considera agregar autenticación (NextAuth.js) si otros podrían acceder a tu URL de Vercel
+- No expongas `OPENCLAW_TOKEN` en frontend.
+- En produccion, define `PROXY_SECRET` para bloquear uso anonimo del proxy.
+- Si usaras llamadas cross-origin, define `PROXY_ALLOWED_ORIGINS` de forma explicita.
+
+## Buenas practicas aplicadas
+
+- Seguridad de cabeceras globales en `next.config.js`:
+  - `Content-Security-Policy`
+  - `Strict-Transport-Security`
+  - `X-Frame-Options`
+  - `X-Content-Type-Options`
+  - `Referrer-Policy`
+  - `Permissions-Policy`
+- `poweredByHeader: false`.
+- Rutas API declaradas como dinamicas (`dynamic = 'force-dynamic'`) y `Cache-Control: no-store`.
+- Validacion de entrada para chat (`message` obligatorio, longitud maxima).
+- Rate limiting en memoria para `/api/chat` y `/api/proxy/*`.
+- Limite de tamano de request:
+  - `/api/chat`: 16KB
+  - `/api/proxy/*` (POST/PUT/PATCH): 1MB
+- Manejo de errores consistente y sin filtrar detalles sensibles en produccion.
+- Configuracion centralizada de entorno y utilidades server compartidas (`lib/server/*`) para facilitar mantenimiento.

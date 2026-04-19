@@ -2,21 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-display: var(--font-space-grotesk), "Segoe UI", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "Consolas", monospace;
+  --surface: #f3f7ff;
+  --surface-soft: #e8f0ff;
+  --ink: #071226;
+  --ink-soft: #41506b;
+  --line: #d8e0f2;
+  --brand: #2058ff;
+  --brand-strong: #183fb5;
+  --ok: #10976f;
+  --warn: #c9861b;
+  --danger: #c53b3b;
+}
+
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
   margin: 0;
-  padding: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  background:
+    radial-gradient(1200px 500px at -10% -5%, #d6e5ff 0%, transparent 70%),
+    radial-gradient(900px 400px at 110% 10%, #d9fff4 0%, transparent 70%),
+    linear-gradient(180deg, #f8fbff 0%, #eff5ff 45%, #f5f9ff 100%);
 }
 
-html, body {
-  height: 100%;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.animate-pulse-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
+.font-mono-ui {
+  font-family: var(--font-mono);
 }

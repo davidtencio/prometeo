@@ -1,68 +1,89 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { serverConfig } from '@/lib/server/config'
+import { fetchWithTimeout, sanitizeMessage } from '@/lib/server/http'
+import { checkRateLimit, getClientKey } from '@/lib/server/rate-limit'
+import { jsonError, jsonSuccess } from '@/lib/server/response'
+import { getClientIp, getContentLength } from '@/lib/server/request'
 
-const GATEWAY = process.env.OPENCLAW_GATEWAY_URL || 'http://2.24.212.81:18789'
-const TOKEN = process.env.OPENCLAW_TOKEN || ''
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+const CHAT_ENDPOINTS = ['/api/v1/chat', '/api/chat', '/chat']
+const MAX_MESSAGE_LENGTH = 2000
+const MAX_REQUEST_SIZE = 16 * 1024
+const RATE_LIMIT = { limit: 20, windowMs: 60_000 } as const
 
 export async function POST(req: NextRequest) {
-  const { message, workspace } = await req.json()
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+  if (getContentLength(req) > MAX_REQUEST_SIZE) {
+    return jsonError('Request demasiado grande.', 413)
   }
-  if (TOKEN) headers['Authorization'] = `Bearer ${TOKEN}`
 
+  const clientKey = getClientKey(getClientIp(req))
+  const rate = checkRateLimit(`chat:${clientKey}`, RATE_LIMIT.limit, RATE_LIMIT.windowMs)
+  if (!rate.allowed) {
+    const retryAfter = Math.max(1, Math.ceil((rate.resetAt - Date.now()) / 1000)).toString()
+    const res = jsonError('Demasiadas solicitudes. Intenta de nuevo en unos segundos.', 429)
+    res.headers.set('Retry-After', retryAfter)
+    res.headers.set('X-RateLimit-Limit', RATE_LIMIT.limit.toString())
+    res.headers.set('X-RateLimit-Remaining', '0')
+    return res
+  }
+
+  let payload: { message?: unknown; workspace?: unknown }
   try {
-    // Intenta enviar el mensaje al Gateway de OpenClaw
-    // OpenClaw acepta mensajes en /api/v1/chat o similar
-    const endpoints = [
-      '/api/v1/chat',
-      '/api/chat',
-      '/chat',
-    ]
-
-    let lastError = null
-
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(`${GATEWAY}${endpoint}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ 
-            message, 
-            context: workspace,
-            role: 'user'
-          }),
-          signal: AbortSignal.timeout(30000),
-          cache: 'no-store',
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          return NextResponse.json({ 
-            success: true, 
-            response: data.response || data.message || data.text || JSON.stringify(data),
-            endpoint
-          })
-        }
-      } catch (err) {
-        lastError = err
-        continue
-      }
-    }
-
-    // Si ningún endpoint funcionó, devuelve un error descriptivo
-    return NextResponse.json({ 
-      success: false,
-      error: 'No se encontró el endpoint de chat en el Gateway. Verifica la versión de OpenClaw.',
-      gateway: GATEWAY,
-      lastError: String(lastError)
-    }, { status: 502 })
-
-  } catch (error) {
-    return NextResponse.json({ 
-      success: false,
-      error: 'Error de conexión con el VPS',
-      details: String(error)
-    }, { status: 500 })
+    payload = await req.json()
+  } catch {
+    return jsonError('Body invalido. Debe ser JSON.', 400)
   }
+
+  const message = sanitizeMessage(payload.message, MAX_MESSAGE_LENGTH)
+  if (!message) {
+    return jsonError('El mensaje es obligatorio.', 400)
+  }
+
+  const workspace = typeof payload.workspace === 'string' && payload.workspace.trim()
+    ? payload.workspace.trim()
+    : 'workspace'
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (serverConfig.gatewayToken) headers.Authorization = `Bearer ${serverConfig.gatewayToken}`
+
+  let lastError: unknown = null
+  for (const endpoint of CHAT_ENDPOINTS) {
+    try {
+      const res = await fetchWithTimeout(`${serverConfig.gatewayUrl}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ message, context: workspace, role: 'user' }),
+        cache: 'no-store',
+        timeoutMs: 30_000,
+      })
+
+      if (!res.ok) continue
+
+      const raw = await res.text()
+      let data: Record<string, unknown> = {}
+      try {
+        data = JSON.parse(raw)
+      } catch {
+        data = { text: raw }
+      }
+
+      const responseText =
+        (typeof data.response === 'string' && data.response) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof data.text === 'string' && data.text) ||
+        raw
+
+      return jsonSuccess({ response: responseText, endpoint })
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  return jsonError(
+    'No se encontro un endpoint de chat compatible en el Gateway.',
+    502,
+    process.env.NODE_ENV === 'production' ? undefined : String(lastError)
+  )
 }
