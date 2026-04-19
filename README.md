@@ -52,7 +52,7 @@ vercel deploy
 |---|---|---|
 | `/api/gateway/status` | `GET` | Endpoint canonico de estado para UI |
 | `/api/health` | `GET` | Healthcheck tecnico del servicio |
-| `/api/chat` | `POST` | API de producto para enviar mensajes (`{ message }`) |
+| `/api/chat` | `POST` | API de producto para enviar mensajes (`{ message }`, JSON) |
 
 ## Notas de seguridad
 
@@ -75,6 +75,7 @@ vercel deploy
 - Rate limiting en memoria para `/api/chat`.
 - Limite de tamano de request:
   - `/api/chat`: 16KB
+- Logs minimos server-side para rate limit, fallo de health y errores de upstream.
 - `app/page.tsx` queda delgado y los componentes interactivos se aislan en `components/*`.
 - Manejo de errores consistente y sin filtrar detalles sensibles en produccion.
 - Configuracion centralizada de entorno y utilidades server compartidas (`lib/server/*`) para facilitar mantenimiento.

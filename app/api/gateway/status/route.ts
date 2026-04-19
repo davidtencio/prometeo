@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { serverConfig } from '@/lib/server/config'
 import { getGatewayHealth } from '@/lib/server/openclaw-client'
+import { logWarn } from '@/lib/server/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -10,18 +10,18 @@ export async function GET() {
   if (result.online) {
     return NextResponse.json({
       status: 'online',
-      gateway: serverConfig.gatewayUrl,
       checkedPath: result.checkedPath,
       latencyMs: result.latencyMs,
       timestamp: new Date().toISOString(),
     })
   }
 
+  logWarn('api.gateway.status.offline', { latencyMs: result.latencyMs })
+
   return NextResponse.json(
     {
       status: 'offline',
       error: 'No se pudo conectar al Gateway de OpenClaw.',
-      gateway: serverConfig.gatewayUrl,
       latencyMs: result.latencyMs,
       timestamp: new Date().toISOString(),
     },

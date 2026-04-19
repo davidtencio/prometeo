@@ -4,6 +4,7 @@ import { checkRateLimit, getClientKey } from '@/lib/server/rate-limit'
 import { jsonError, jsonSuccess } from '@/lib/server/response'
 import { getClientIp, getContentLength } from '@/lib/server/request'
 import { sendGatewayMessage } from '@/lib/server/openclaw-client'
+import { logWarn } from '@/lib/server/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,9 +12,13 @@ export const dynamic = 'force-dynamic'
 const MAX_MESSAGE_LENGTH = 2000
 const MAX_REQUEST_SIZE = 16 * 1024
 const RATE_LIMIT = { limit: 20, windowMs: 60_000 } as const
-const WORKSPACE_CONTEXT = 'workspace'
 
 export async function POST(req: NextRequest) {
+  const contentType = req.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    return jsonError('Content-Type no soportado. Usa application/json.', 415)
+  }
+
   if (getContentLength(req) > MAX_REQUEST_SIZE) {
     return jsonError('Request demasiado grande.', 413)
   }
@@ -21,6 +26,7 @@ export async function POST(req: NextRequest) {
   const clientKey = getClientKey(getClientIp(req))
   const rate = checkRateLimit(`chat:${clientKey}`, RATE_LIMIT.limit, RATE_LIMIT.windowMs)
   if (!rate.allowed) {
+    logWarn('api.chat.rate_limited', { clientKey })
     const retryAfter = Math.max(1, Math.ceil((rate.resetAt - Date.now()) / 1000)).toString()
     const res = jsonError('Demasiadas solicitudes. Intenta de nuevo en unos segundos.', 429)
     res.headers.set('Retry-After', retryAfter)
@@ -41,9 +47,9 @@ export async function POST(req: NextRequest) {
     return jsonError('El mensaje es obligatorio.', 400)
   }
 
-  const result = await sendGatewayMessage(message, WORKSPACE_CONTEXT)
+  const result = await sendGatewayMessage(message)
   if (result.ok) {
-    return jsonSuccess({ response: result.responseText, endpoint: result.endpoint })
+    return jsonSuccess({ response: result.responseText })
   }
 
   return jsonError(

@@ -1,8 +1,10 @@
 import { serverConfig } from '@/lib/server/config'
 import { fetchWithTimeout } from '@/lib/server/http'
+import { logWarn } from '@/lib/server/logger'
 
 const CHAT_ENDPOINTS = ['/api/v1/chat', '/api/chat', '/chat'] as const
 const HEALTH_PATHS = ['/health', '/api/health', '/'] as const
+const DEFAULT_WORKSPACE = 'workspace'
 
 export type GatewayHealthResult =
   | { online: true; checkedPath: (typeof HEALTH_PATHS)[number]; latencyMs: number }
@@ -40,7 +42,7 @@ export async function getGatewayHealth(): Promise<GatewayHealthResult> {
         latencyMs: Date.now() - startedAt,
       }
     } catch {
-      // Try next path.
+      logWarn('gateway.health.request_failed', { path })
     }
   }
 
@@ -50,7 +52,7 @@ export async function getGatewayHealth(): Promise<GatewayHealthResult> {
   }
 }
 
-export async function sendGatewayMessage(message: string, workspace: string): Promise<GatewayMessageResult> {
+export async function sendGatewayMessage(message: string): Promise<GatewayMessageResult> {
   let lastError: unknown = null
 
   for (const endpoint of CHAT_ENDPOINTS) {
@@ -58,12 +60,15 @@ export async function sendGatewayMessage(message: string, workspace: string): Pr
       const res = await fetchWithTimeout(`${serverConfig.gatewayUrl}${endpoint}`, {
         method: 'POST',
         headers: gatewayHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ message, context: workspace, role: 'user' }),
+        body: JSON.stringify({ message, context: DEFAULT_WORKSPACE, role: 'user' }),
         cache: 'no-store',
         timeoutMs: 30_000,
       })
 
-      if (!res.ok) continue
+      if (!res.ok) {
+        logWarn('gateway.chat.upstream_non_ok', { endpoint, status: res.status })
+        continue
+      }
 
       const raw = await res.text()
       let data: Record<string, unknown> = {}
@@ -86,6 +91,7 @@ export async function sendGatewayMessage(message: string, workspace: string): Pr
       }
     } catch (error) {
       lastError = error
+      logWarn('gateway.chat.request_failed', { endpoint })
     }
   }
 
