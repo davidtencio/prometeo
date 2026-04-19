@@ -78,7 +78,7 @@ export default function Dashboard() {
   const checkGateway = async () => {
     setGatewayStatus('checking')
     try {
-      const res = await fetch('/api/health', { cache: 'no-store' })
+      const res = await fetch('/api/gateway/status', { cache: 'no-store' })
       const data = await res.json()
 
       if (data.status === 'online') {

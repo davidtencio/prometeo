@@ -38,8 +38,6 @@ vercel deploy
 3. En `Environment Variables` agrega:
    - `OPENCLAW_GATEWAY_URL` = `http://2.24.212.81:18789`
    - `OPENCLAW_TOKEN` = tu token si aplica
-   - `PROXY_SECRET` = una clave secreta aleatoria
-   - `PROXY_ALLOWED_ORIGINS` = lista de origenes permitidos separada por comas (opcional)
 
 ## Variables de entorno
 
@@ -47,22 +45,19 @@ vercel deploy
 |---|---|---|
 | `OPENCLAW_GATEWAY_URL` | URL base del Gateway | `http://2.24.212.81:18789` |
 | `OPENCLAW_TOKEN` | Token de auth (opcional) | `mi_token` |
-| `PROXY_SECRET` | Protege `/api/proxy/*` | `clave_larga_aleatoria` |
-| `PROXY_ALLOWED_ORIGINS` | Origenes CORS permitidos (opcional) | `https://mi-app.vercel.app` |
 
 ## Rutas API
 
 | Ruta | Metodo | Descripcion |
 |---|---|---|
-| `/api/health` | `GET` | Verifica conectividad del Gateway |
+| `/api/gateway/status` | `GET` | Endpoint canonico para estado del Gateway |
+| `/api/health` | `GET` | Endpoint legado de compatibilidad (deprecated) |
 | `/api/chat` | `POST` | Envia mensajes al agente OpenClaw |
-| `/api/proxy/[...path]` | `GET/POST/PUT/PATCH/DELETE/OPTIONS` | Proxy universal al Gateway |
 
 ## Notas de seguridad
 
 - No expongas `OPENCLAW_TOKEN` en frontend.
-- En produccion, define `PROXY_SECRET` para bloquear uso anonimo del proxy.
-- Si usaras llamadas cross-origin, define `PROXY_ALLOWED_ORIGINS` de forma explicita.
+- El acceso al Gateway ocurre por endpoints de producto (`/api/gateway/status`, `/api/chat`), no por proxy universal.
 
 ## Buenas practicas aplicadas
 
@@ -76,9 +71,9 @@ vercel deploy
 - `poweredByHeader: false`.
 - Rutas API declaradas como dinamicas (`dynamic = 'force-dynamic'`) y `Cache-Control: no-store`.
 - Validacion de entrada para chat (`message` obligatorio, longitud maxima).
-- Rate limiting en memoria para `/api/chat` y `/api/proxy/*`.
+- Rate limiting en memoria para `/api/chat`.
 - Limite de tamano de request:
   - `/api/chat`: 16KB
-  - `/api/proxy/*` (POST/PUT/PATCH): 1MB
 - Manejo de errores consistente y sin filtrar detalles sensibles en produccion.
 - Configuracion centralizada de entorno y utilidades server compartidas (`lib/server/*`) para facilitar mantenimiento.
+- Cliente interno unificado de integracion OpenClaw (`lib/server/openclaw-client.ts`).
