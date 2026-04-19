@@ -4,14 +4,22 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Loader2, Send, TerminalSquare } from 'lucide-react'
 import { ChatMessage } from './dashboard-types'
 
-type ChatPanelProps = {
-  initialMessages: ChatMessage[]
+function makeMessageId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function ChatPanel({ initialMessages }: ChatPanelProps) {
+export function ChatPanel() {
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      id: makeMessageId(),
+      role: 'assistant',
+      text: 'Hola, Dr. Tencio. Conectando con el Gateway de OpenClaw...',
+      timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
+    },
+  ])
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -20,11 +28,13 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!inputText.trim() || isSending) return
+    const message = inputText.trim()
+    if (!message || isSending) return
 
     const userMsg: ChatMessage = {
+      id: makeMessageId(),
       role: 'user',
-      text: inputText,
+      text: message,
       timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
     }
 
@@ -36,13 +46,36 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: inputText }),
+        body: JSON.stringify({ message }),
       })
-      const data = await res.json()
+
+      const raw = await res.text()
+      let data: Record<string, unknown> = {}
+      try {
+        data = raw ? JSON.parse(raw) : {}
+      } catch {
+        data = {}
+      }
+
+      if (!res.ok) {
+        const errText = typeof data.error === 'string' ? data.error : `Error HTTP ${res.status}`
+        const errorMsg: ChatMessage = {
+          id: makeMessageId(),
+          role: 'error',
+          text: errText,
+          timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
+        }
+        setMessages((prev) => [...prev, errorMsg])
+        return
+      }
 
       const assistantMsg: ChatMessage = {
-        role: data.success ? 'assistant' : 'error',
-        text: data.success ? data.response : `${data.error || 'Error al comunicarse con OpenClaw'}`,
+        id: makeMessageId(),
+        role: data.success === true ? 'assistant' : 'error',
+        text:
+          data.success === true && typeof data.response === 'string'
+            ? data.response
+            : `${typeof data.error === 'string' ? data.error : 'Error al comunicarse con OpenClaw'}`,
         timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
       }
       setMessages((prev) => [...prev, assistantMsg])
@@ -50,6 +83,7 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
       setMessages((prev) => [
         ...prev,
         {
+          id: makeMessageId(),
           role: 'error',
           text: 'Error de red al contactar el servidor.',
           timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
@@ -70,8 +104,8 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,#f7faff_0%,#f9fbff_100%)] p-4">
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div
               className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'

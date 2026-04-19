@@ -1,6 +1,7 @@
 export type GatewayStatus = 'checking' | 'online' | 'offline'
 
 export interface ChatMessage {
+  id: string
   role: 'user' | 'assistant' | 'error'
   text: string
   timestamp: string

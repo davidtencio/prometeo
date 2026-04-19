@@ -34,38 +34,38 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       <nav className="mt-6 space-y-1">
-        <a
-          href="#"
+        <button
+          type="button"
           className={`flex items-center rounded-xl bg-white/15 py-2.5 text-sm font-medium ${collapsed ? 'justify-center px-2' : 'px-3'}`}
           title="Dashboard"
         >
           <LayoutDashboard size={18} className={`${collapsed ? '' : 'mr-2.5'} text-cyan-300`} />
           {!collapsed && 'Dashboard'}
-        </a>
-        <a
-          href="#"
+        </button>
+        <button
+          type="button"
           className={`flex items-center rounded-xl py-2.5 text-sm text-white/80 transition hover:bg-white/10 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
           title="Terminal IA"
         >
           <MessageSquare size={18} className={collapsed ? '' : 'mr-2.5'} />
           {!collapsed && 'Terminal IA'}
-        </a>
-        <a
-          href="#"
+        </button>
+        <button
+          type="button"
           className={`flex items-center rounded-xl py-2.5 text-sm text-white/80 transition hover:bg-white/10 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
           title="Boveda segura"
         >
           <FolderLock size={18} className={collapsed ? '' : 'mr-2.5'} />
           {!collapsed && 'Boveda segura'}
-        </a>
-        <a
-          href="#"
+        </button>
+        <button
+          type="button"
           className={`flex items-center rounded-xl py-2.5 text-sm text-white/80 transition hover:bg-white/10 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
           title="Configuracion"
         >
           <Settings size={18} className={collapsed ? '' : 'mr-2.5'} />
           {!collapsed && 'Configuracion'}
-        </a>
+        </button>
       </nav>
 
       <div className={`mt-auto rounded-2xl border border-white/20 bg-white/10 ${collapsed ? 'p-3' : 'p-4'}`}>

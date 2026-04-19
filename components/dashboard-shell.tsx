@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, Bell, Bot, CheckCircle2, RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import { Sidebar } from './sidebar'
 import { ChatPanel } from './chat-panel'
 import { GatewayStatusCard } from './gateway-status-card'
 import { PendingTasks } from './pending-tasks'
-import { ActivityItem, ChatMessage, GatewayStatus } from './dashboard-types'
+import { ActivityItem } from './dashboard-types'
+import { useGatewayStatus } from '@/hooks/use-gateway-status'
 
 const activityFeed: ActivityItem[] = [
   { id: 1, time: '09:58', text: 'Analizando reporte mensual SAP ERP', status: 'loading' },
@@ -14,40 +15,9 @@ const activityFeed: ActivityItem[] = [
   { id: 3, time: '06:15', text: 'Alerta: discrepancia en stock de reactivos', status: 'warning' },
 ]
 
-const initialChatMessages: ChatMessage[] = [
-  {
-    role: 'assistant',
-    text: 'Hola, Dr. Tencio. Conectando con el Gateway de OpenClaw...',
-    timestamp: new Date().toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' }),
-  },
-]
-
 export function DashboardShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus>('checking')
-
-  const checkGateway = async () => {
-    setGatewayStatus('checking')
-    try {
-      const res = await fetch('/api/gateway/status', { cache: 'no-store' })
-      const data = await res.json()
-      setGatewayStatus(data.status === 'online' ? 'online' : 'offline')
-    } catch {
-      setGatewayStatus('offline')
-    }
-  }
-
-  useEffect(() => {
-    const runHealthCheck = () => {
-      void checkGateway()
-    }
-    const initial = setTimeout(runHealthCheck, 0)
-    const interval = setInterval(runHealthCheck, 30000)
-    return () => {
-      clearTimeout(initial)
-      clearInterval(interval)
-    }
-  }, [])
+  const { gatewayStatus, checkGateway } = useGatewayStatus()
 
   return (
     <div className="min-h-screen p-2 sm:p-3 md:p-6">
@@ -67,7 +37,8 @@ export function DashboardShell() {
                 <input
                   type="text"
                   placeholder="Buscar documentos u oficios"
-                  className="w-64 rounded-xl border border-[#d8e0f2] bg-white px-10 py-2.5 text-sm outline-none transition focus:border-[#2058ff]"
+                  disabled
+                  className="w-64 rounded-xl border border-[#d8e0f2] bg-white px-10 py-2.5 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
               <button className="relative rounded-xl border border-[#d8e0f2] bg-white p-2.5 text-[#4b5f81] transition hover:border-[#b8c5df] hover:text-[#071226]">
@@ -87,18 +58,19 @@ export function DashboardShell() {
               <input
                 type="text"
                 placeholder="Buscar..."
-                className="w-full rounded-xl border border-[#d8e0f2] bg-white px-10 py-2.5 text-sm outline-none transition focus:border-[#2058ff]"
+                disabled
+                className="w-full rounded-xl border border-[#d8e0f2] bg-white px-10 py-2.5 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           </header>
 
           <nav className="flex items-center gap-1.5 overflow-x-auto border-b border-[#d8e0f2] bg-[#f9fbff] px-3 py-2 text-xs text-[#3f5375] lg:hidden">
-            <a href="#" className="whitespace-nowrap rounded-lg border border-[#d8e0f2] bg-white px-2.5 py-1.5 font-medium text-[#182845]">
+            <button type="button" className="whitespace-nowrap rounded-lg border border-[#d8e0f2] bg-white px-2.5 py-1.5 font-medium text-[#182845]">
               Dashboard
-            </a>
-            <a href="#" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">Terminal IA</a>
-            <a href="#" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">Boveda</a>
-            <a href="#" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">Configuracion</a>
+            </button>
+            <button type="button" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">Terminal IA</button>
+            <button type="button" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">Boveda</button>
+            <button type="button" className="whitespace-nowrap rounded-lg border border-transparent px-2.5 py-1.5">Configuracion</button>
           </nav>
 
           <section className="grid min-h-0 flex-1 gap-4 p-3 sm:p-4 md:grid-cols-[1.1fr_0.9fr] md:gap-6 md:p-6">
@@ -144,7 +116,7 @@ export function DashboardShell() {
 
             <div className="min-h-0 space-y-4 md:space-y-6">
               <GatewayStatusCard status={gatewayStatus} items={activityFeed} />
-              <ChatPanel initialMessages={initialChatMessages} />
+              <ChatPanel />
             </div>
           </section>
 
