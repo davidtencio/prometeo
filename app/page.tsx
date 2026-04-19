@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   Bell,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   FileText,
   FolderLock,
@@ -59,6 +61,7 @@ const pendingTasks = [
 ]
 
 export default function Dashboard() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [inputText, setInputText] = useState('')
   const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus>('checking')
   const [isSending, setIsSending] = useState(false)
@@ -164,35 +167,74 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen p-2 sm:p-3 md:p-6">
       <div className="mx-auto flex min-h-[calc(100vh-1rem)] max-w-[1500px] overflow-hidden rounded-2xl border border-[#d8e0f2] bg-white/80 shadow-[0_20px_60px_-28px_rgba(19,35,74,0.45)] backdrop-blur md:min-h-[calc(100vh-2rem)] md:rounded-[28px]">
-        <aside className="hidden w-72 shrink-0 border-r border-[#d8e0f2] bg-gradient-to-b from-[#0b1733] to-[#0c2149] p-5 text-white lg:flex lg:flex-col">
-          <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+        <aside
+          className={`relative hidden shrink-0 border-r border-[#d8e0f2] bg-gradient-to-b from-[#0b1733] to-[#0c2149] text-white transition-all duration-300 lg:flex lg:flex-col ${
+            sidebarCollapsed ? 'w-20 p-3' : 'w-72 p-5'
+          }`}
+        >
+          <button
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            className="absolute -right-3 top-6 z-10 hidden h-7 w-7 items-center justify-center rounded-full border border-[#d8e0f2] bg-white text-[#0b1733] shadow-sm transition hover:bg-[#f3f7ff] lg:flex"
+            aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+            title={sidebarCollapsed ? 'Expandir' : 'Minimizar'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+
+          <div className={`rounded-2xl border border-white/20 bg-white/10 ${sidebarCollapsed ? 'p-3' : 'p-4'}`}>
             <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100/70">OpenClaw Node</p>
-            <p className="mt-1 text-lg font-semibold">Workspace</p>
-            <p className="mt-2 text-sm text-blue-100/80">Entorno de trabajo unico</p>
+            {!sidebarCollapsed && (
+              <>
+                <p className="mt-1 text-lg font-semibold">Workspace</p>
+                <p className="mt-2 text-sm text-blue-100/80">Entorno de trabajo unico</p>
+              </>
+            )}
           </div>
 
           <nav className="mt-6 space-y-1">
-            <a href="#" className="flex items-center rounded-xl bg-white/15 px-3 py-2.5 text-sm font-medium">
-              <LayoutDashboard size={18} className="mr-2.5 text-cyan-300" /> Dashboard
+            <a
+              href="#"
+              className={`flex items-center rounded-xl bg-white/15 py-2.5 text-sm font-medium ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}
+              title="Dashboard"
+            >
+              <LayoutDashboard size={18} className={`${sidebarCollapsed ? '' : 'mr-2.5'} text-cyan-300`} />
+              {!sidebarCollapsed && 'Dashboard'}
             </a>
-            <a href="#" className="flex items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10">
-              <MessageSquare size={18} className="mr-2.5" /> Terminal IA
+            <a
+              href="#"
+              className={`flex items-center rounded-xl py-2.5 text-sm text-white/80 transition hover:bg-white/10 ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}
+              title="Terminal IA"
+            >
+              <MessageSquare size={18} className={sidebarCollapsed ? '' : 'mr-2.5'} />
+              {!sidebarCollapsed && 'Terminal IA'}
             </a>
-            <a href="#" className="flex items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10">
-              <FolderLock size={18} className="mr-2.5" /> Boveda segura
+            <a
+              href="#"
+              className={`flex items-center rounded-xl py-2.5 text-sm text-white/80 transition hover:bg-white/10 ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}
+              title="Boveda segura"
+            >
+              <FolderLock size={18} className={sidebarCollapsed ? '' : 'mr-2.5'} />
+              {!sidebarCollapsed && 'Boveda segura'}
             </a>
-            <a href="#" className="flex items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10">
-              <Settings size={18} className="mr-2.5" /> Configuracion
+            <a
+              href="#"
+              className={`flex items-center rounded-xl py-2.5 text-sm text-white/80 transition hover:bg-white/10 ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}
+              title="Configuracion"
+            >
+              <Settings size={18} className={sidebarCollapsed ? '' : 'mr-2.5'} />
+              {!sidebarCollapsed && 'Configuracion'}
             </a>
           </nav>
 
-          <div className="mt-auto rounded-2xl border border-white/20 bg-white/10 p-4">
-            <div className="flex items-center">
-              <div className="mr-3 flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 font-semibold">T</div>
-              <div>
-                <p className="text-sm font-medium">Dr. Tencio</p>
-                <p className="text-xs text-blue-100/80">Direccion medica</p>
-              </div>
+          <div className={`mt-auto rounded-2xl border border-white/20 bg-white/10 ${sidebarCollapsed ? 'p-3' : 'p-4'}`}>
+            <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''}`}>
+              <div className={`${sidebarCollapsed ? '' : 'mr-3'} flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 font-semibold`}>T</div>
+              {!sidebarCollapsed && (
+                <div>
+                  <p className="text-sm font-medium">Dr. Tencio</p>
+                  <p className="text-xs text-blue-100/80">Direccion medica</p>
+                </div>
+              )}
             </div>
           </div>
         </aside>
