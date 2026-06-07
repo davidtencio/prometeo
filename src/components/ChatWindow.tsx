@@ -26,6 +26,13 @@ type ChatWindowProps = {
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
+const SUGGESTIONS = [
+  "Buscar en SICOP concursos recientes de un medicamento",
+  "Generar un estudio de mercado con promedio y mediana",
+  "Comparar precios contra expedientes similares",
+  "Redactar un oficio institucional formal"
+];
+
 function currentTime() {
   return new Intl.DateTimeFormat("es-CR", {
     timeZone: "America/Costa_Rica",
@@ -222,6 +229,20 @@ export function ChatWindow({
     await streamAssistant(clean, history, files);
   }
 
+  function submitPrompt(text: string) {
+    const clean = text.trim();
+    if (!clean || isSending) return;
+    const userMessage: ChatMessage = {
+      id: Date.now(),
+      role: "user",
+      text: clean,
+      time: currentTime()
+    };
+    const history = messages.slice(-10).map(({ role, text }) => ({ role, text }));
+    setMessages((prev) => [...prev, userMessage]);
+    void streamAssistant(clean, history, []);
+  }
+
   function regenerate() {
     if (isSending) return;
     // Último mensaje del usuario.
@@ -293,6 +314,17 @@ export function ChatWindow({
                 Escribe una instrucción, arrastra un archivo o usa una de las acciones
                 rápidas del panel derecho para empezar.
               </p>
+              <div className="mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
+                {SUGGESTIONS.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => submitPrompt(suggestion)}
+                    className="rounded-full border border-borderSoft bg-panel/60 px-4 py-2 text-xs text-mutedText transition hover:border-brand/60 hover:text-white"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
