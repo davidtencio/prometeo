@@ -1,82 +1,82 @@
-# OpenClaw Dashboard - Next.js
+# OpenClaw Web App
 
-Panel de control para interactuar con tu OpenClaw Gateway desde Vercel.
+Interfaz web (Next.js + TypeScript + Tailwind CSS) para conversar con un agente
+**OpenClaw** sin depender de Telegram/WhatsApp.
 
-## Arquitectura
+## Arquitectura prevista
 
-```text
-Navegador -> Next.js (facade de producto) -> OpenClaw Gateway
+```
+   TRABAJO (filtro web)          NUBE (Vercel)              CASA (mini PC)
+  Navegador  ──── 443 ────►  Web app + /api/chat  ────►  OpenClaw + cloudflared
+                              (proxy con token)          (túnel saliente)
 ```
 
-## Setup local
+- La cara (web app) y la ruta `/api/chat` se despliegan en **Vercel** (pasa el
+  cortafuegos corporativo donde `*.pages.dev` no pasa).
+- `/api/chat` actúa como **proxy seguro**: el token de OpenClaw vive en el
+  servidor y nunca llega al navegador.
+- OpenClaw correrá en una **mini PC** en casa, expuesta por un túnel (p. ej.
+  Cloudflare Tunnel). Solo Vercel la alcanza; el navegador del trabajo nunca ve
+  ese dominio.
+
+Mientras no exista OpenClaw, `/api/chat` devuelve una **respuesta simulada**, así
+la cara es totalmente funcional.
+
+## Requisitos
+
+- Node.js 20 o superior.
+- npm.
+
+## Desarrollo
 
 ```bash
-# 1. Instalar dependencias
 npm install
-
-# 2. Crear variables de entorno
-cp .env.local.example .env.local
-# Editar .env.local con tus valores
-
-# 3. Correr en desarrollo
+cp .env.example .env.local   # opcional, ver variables abajo
 npm run dev
 ```
 
-## Deploy en Vercel
+Abrir http://localhost:3000
 
-### Opcion A - Vercel CLI
-
-```bash
-npm i -g vercel
-vercel deploy
-```
-
-### Opcion B - GitHub + Vercel Dashboard
-
-1. Sube este proyecto a un repositorio de GitHub.
-2. Ve a https://vercel.com y conecta el repositorio.
-3. En `Environment Variables` agrega:
-   - `OPENCLAW_GATEWAY_URL` = `https://openclaw.midominio.com`
-   - `OPENCLAW_TOKEN` = tu token si aplica
+> Sin `APP_PASSWORD`/`AUTH_SECRET` definidos, la app queda **abierta** (cómodo
+> para desarrollo). Defínelas para probar el login localmente.
 
 ## Variables de entorno
 
-| Variable | Descripcion | Ejemplo |
-|---|---|---|
-| `OPENCLAW_GATEWAY_URL` | URL base del Gateway (obligatoria en produccion) | `https://openclaw.midominio.com` |
-| `OPENCLAW_TOKEN` | Token de auth (opcional) | `mi_token` |
+| Variable           | Descripción                                                            |
+| ------------------ | --------------------------------------------------------------------- |
+| `OPENCLAW_API_URL` | Endpoint de OpenClaw. Vacío = modo simulado.                          |
+| `OPENCLAW_API_KEY` | Token enviado como `Authorization: Bearer ...` hacia OpenClaw.        |
+| `APP_PASSWORD`     | Contraseña de acceso a la web app.                                    |
+| `AUTH_SECRET`      | Secreto para firmar la cookie de sesión (largo y aleatorio).          |
 
-## Rutas API
+Generar `AUTH_SECRET`:
 
-| Ruta | Metodo | Descripcion |
-|---|---|---|
-| `/api/gateway/status` | `GET` | Endpoint canonico de estado para UI |
-| `/api/health` | `GET` | Healthcheck tecnico del servicio |
-| `/api/chat` | `POST` | API de producto para enviar mensajes (`{ message }`, JSON) |
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-## Notas de seguridad
+## Seguridad incluida
 
-- No expongas `OPENCLAW_TOKEN` en frontend.
-- El acceso al Gateway ocurre por endpoints de producto (`/api/gateway/status`, `/api/chat`).
-- En produccion usa un endpoint HTTPS estable para `OPENCLAW_GATEWAY_URL`.
+- **Login** con cookie de sesión `HttpOnly` + `Secure` (prod) + `SameSite=Lax`,
+  firmada con HMAC-SHA256. Middleware protege todas las rutas excepto `/login`.
+- **Cabeceras de seguridad** (HSTS, CSP, `X-Frame-Options`, `nosniff`,
+  `Referrer-Policy`, `Permissions-Policy`) en `next.config.mjs`.
+- **HTTPS** automático en Vercel; el token de OpenClaw nunca se expone al cliente.
 
-## Buenas practicas aplicadas
+Pendiente al conectar la mini PC: proteger el túnel (token / Cloudflare Access) y
+cifrar el disco de la mini PC.
 
-- Seguridad de cabeceras globales en `next.config.js`:
-  - `Content-Security-Policy`
-  - `Strict-Transport-Security`
-  - `X-Frame-Options`
-  - `X-Content-Type-Options`
-  - `Referrer-Policy`
-  - `Permissions-Policy`
-- `poweredByHeader: false`.
-- Rutas API declaradas como dinamicas (`dynamic = 'force-dynamic'`) y `Cache-Control: no-store`.
-- Validacion de entrada para chat (`message` obligatorio, longitud maxima).
-- Rate limiting en memoria para `/api/chat`.
-- Limite de tamano de request:
-  - `/api/chat`: 16KB
-- Logs minimos server-side para rate limit, fallo de health y errores de upstream.
-- `app/page.tsx` queda delgado y los componentes interactivos se aislan en `components/*`.
-- Manejo de errores consistente y sin filtrar detalles sensibles en produccion.
-- Configuracion centralizada de entorno y utilidades server compartidas (`lib/server/*`) para facilitar mantenimiento.
-- Cliente interno unificado de integracion OpenClaw (`lib/server/openclaw-client.ts`).
+## Despliegue en Vercel
+
+1. Subir el repo a GitHub e importarlo en [vercel.com](https://vercel.com).
+2. Vercel detecta Next.js automáticamente (sin configuración).
+3. En **Project Settings → Environment Variables**, definir al menos
+   `APP_PASSWORD` y `AUTH_SECRET` (y luego `OPENCLAW_API_URL`/`OPENCLAW_API_KEY`
+   cuando la mini PC esté lista).
+4. Deploy.
+
+## Conexión futura con OpenClaw
+
+Cuando la mini PC esté lista, definir `OPENCLAW_API_URL` (URL del túnel) y
+`OPENCLAW_API_KEY` en Vercel. La ruta [`/api/chat`](src/app/api/chat/route.ts) ya
+hace el proxy; no hay que tocar el frontend.
