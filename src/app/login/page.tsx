@@ -1,11 +1,12 @@
 "use client";
 
-import { Lock, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [twoFactor, setTwoFactor] = useState(false);
   const [error, setError] = useState("");
@@ -62,13 +63,22 @@ export default function LoginPage() {
           <div className="flex items-center gap-3 rounded-xl border border-borderSoft bg-surface/85 px-4 py-3">
             <Lock size={18} className="text-mutedText" />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoFocus
               className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-mutedText"
               placeholder="Contraseña"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="text-mutedText transition hover:text-white"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           {twoFactor && (
