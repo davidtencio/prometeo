@@ -1,6 +1,7 @@
 "use client";
 
 import { UploadCloud, Trash2, X } from "lucide-react";
+import { useDrawer } from "@/hooks/useDrawer";
 import { quickActions } from "@/lib/mock-data";
 
 type RightPanelProps = {
@@ -10,6 +11,8 @@ type RightPanelProps = {
 };
 
 export function RightPanel({ onQuickPrompt, open = false, onClose }: RightPanelProps) {
+  const panelRef = useDrawer(open, onClose);
+
   function handleQuickPrompt(prompt: string) {
     onQuickPrompt(prompt);
     onClose?.();
@@ -86,7 +89,12 @@ export function RightPanel({ onQuickPrompt, open = false, onClose }: RightPanelP
           }`}
         />
         <aside
-          className={`absolute right-0 top-0 flex h-full w-[340px] max-w-[85%] flex-col overflow-y-auto border-l border-borderSoft/70 bg-surface p-5 shadow-soft transition-transform duration-300 ${
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Acciones rápidas"
+          tabIndex={-1}
+          className={`absolute right-0 top-0 flex h-full w-[340px] max-w-[85%] flex-col overflow-y-auto border-l border-borderSoft/70 bg-surface p-5 shadow-soft outline-none transition-transform duration-300 ${
             open ? "translate-x-0" : "translate-x-full"
           }`}
         >

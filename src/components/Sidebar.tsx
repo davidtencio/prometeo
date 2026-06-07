@@ -2,6 +2,7 @@
 
 import { FileText, LogOut, MessageSquare, Plus, Trash2, X } from "lucide-react";
 import { Logo } from "./Logo";
+import { useDrawer } from "@/hooks/useDrawer";
 import { recentFiles } from "@/lib/mock-data";
 import type { Conversation } from "@/lib/chat-types";
 
@@ -42,6 +43,8 @@ export function Sidebar({
   open = false,
   onClose
 }: SidebarProps) {
+  const panelRef = useDrawer(open, onClose);
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     window.location.href = "/login";
@@ -192,7 +195,12 @@ export function Sidebar({
           }`}
         />
         <aside
-          className={`absolute left-0 top-0 flex h-full w-[300px] max-w-[85%] flex-col overflow-y-auto border-r border-borderSoft/70 bg-surface p-5 shadow-soft transition-transform duration-300 ${
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menú"
+          tabIndex={-1}
+          className={`absolute left-0 top-0 flex h-full w-[300px] max-w-[85%] flex-col overflow-y-auto border-r border-borderSoft/70 bg-surface p-5 shadow-soft outline-none transition-transform duration-300 ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
         >
