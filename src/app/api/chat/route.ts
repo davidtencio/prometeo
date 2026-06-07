@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import type { ChartPayload } from "@/lib/chat-types";
+
+const CHAT_LIMIT = 30;
+const CHAT_WINDOW_MS = 60_000; // 30 mensajes por minuto
 
 /**
  * Endpoint para conectar la web app con Prometeo.
@@ -52,6 +56,14 @@ function wantsChart(message: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const limit = rateLimit(`chat:${clientIp(request)}`, CHAT_LIMIT, CHAT_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: `Demasiados mensajes. Esperá ${limit.retryAfter}s.` },
+      { status: 429 }
+    );
+  }
+
   const body = await request.json().catch(() => null);
 
   const hasMessage =

@@ -1,13 +1,22 @@
 "use client";
 
-import { Lock } from "lucide-react";
-import { useState } from "react";
+import { Lock, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [twoFactor, setTwoFactor] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/config")
+      .then((res) => res.json())
+      .then((data) => setTwoFactor(Boolean(data?.twoFactor)))
+      .catch(() => null);
+  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -20,7 +29,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password })
+        body: JSON.stringify({ password, code })
       });
 
       const data = await response.json().catch(() => null);
@@ -62,11 +71,29 @@ export default function LoginPage() {
             />
           </div>
 
+          {twoFactor && (
+            <div className="flex items-center gap-3 rounded-xl border border-borderSoft bg-surface/85 px-4 py-3">
+              <ShieldCheck size={18} className="text-mutedText" />
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(event) =>
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                className="min-w-0 flex-1 bg-transparent text-sm tracking-[0.3em] text-white outline-none placeholder:tracking-normal placeholder:text-mutedText"
+                placeholder="Código 2FA (6 dígitos)"
+              />
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
             type="submit"
-            disabled={loading || !password}
+            disabled={loading || !password || (twoFactor && code.length !== 6)}
             className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-sm font-semibold text-surface transition hover:bg-brandDark disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading ? "Entrando…" : "Entrar"}
