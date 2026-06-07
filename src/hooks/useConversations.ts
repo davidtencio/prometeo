@@ -31,8 +31,10 @@ export function useConversations() {
   const [loaded, setLoaded] = useState(false);
 
   // Cargar una vez al montar (evita desajuste de hidratación: el server
-  // y el primer render del cliente arrancan vacíos).
+  // y el primer render del cliente arrancan vacíos). La carga es solo-cliente
+  // desde localStorage, así que el setState dentro del efecto es intencional.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -55,6 +57,7 @@ export function useConversations() {
     setConversations([first]);
     setCurrentId(first.id);
     setLoaded(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // Persistir ante cualquier cambio.

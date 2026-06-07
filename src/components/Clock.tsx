@@ -25,6 +25,8 @@ export function Clock() {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Inicialización solo-cliente para evitar desajuste de hidratación.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
