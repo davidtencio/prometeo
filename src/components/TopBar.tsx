@@ -1,4 +1,5 @@
 import { Clock3, Menu, Pencil, Share2, Sparkles } from "lucide-react";
+import { Clock } from "./Clock";
 
 type TopBarProps = {
   onOpenSidebar?: () => void;
@@ -24,6 +25,7 @@ export function TopBar({ onOpenSidebar, onOpenActions }: TopBarProps) {
         </button>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
+        <Clock />
         <button className="hidden items-center gap-2 rounded-lg border border-borderSoft px-4 py-2 text-sm font-medium text-white hover:bg-panelSoft md:flex">
           <Share2 size={16} />
           Compartir
