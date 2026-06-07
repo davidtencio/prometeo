@@ -21,6 +21,7 @@ type Message = {
 
 function currentTime() {
   return new Intl.DateTimeFormat("es-CR", {
+    timeZone: "America/Costa_Rica",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false

@@ -3,13 +3,17 @@
 import { CalendarClock } from "lucide-react";
 import { useEffect, useState } from "react";
 
+// timeZone fijo a Costa Rica para que la hora sea correcta sin importar
+// la zona horaria del dispositivo desde donde se abra la app.
 const dateFormat = new Intl.DateTimeFormat("es-CR", {
+  timeZone: "America/Costa_Rica",
   weekday: "short",
   day: "2-digit",
   month: "short"
 });
 
 const timeFormat = new Intl.DateTimeFormat("es-CR", {
+  timeZone: "America/Costa_Rica",
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
