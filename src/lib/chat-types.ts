@@ -26,6 +26,12 @@ export type ChatResponse = {
   chart?: ChartPayload;
 };
 
+export type Attachment = {
+  name: string;
+  size: number;
+  type: string;
+};
+
 export type ChatMessage = {
   id: number;
   role: "user" | "assistant";
@@ -33,6 +39,7 @@ export type ChatMessage = {
   time: string;
   error?: boolean;
   chart?: ChartPayload;
+  files?: Attachment[];
 };
 
 export type Conversation = {

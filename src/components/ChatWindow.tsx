@@ -1,10 +1,11 @@
 "use client";
 
-import { Paperclip, SendHorizonal, Sparkles } from "lucide-react";
+import { FileText, Paperclip, SendHorizonal, Sparkles, UploadCloud, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { MessageBubble } from "./MessageBubble";
-import type { ChartPayload, ChatMessage } from "@/lib/chat-types";
+import { formatFileSize } from "@/lib/format";
+import type { Attachment, ChartPayload, ChatMessage } from "@/lib/chat-types";
 
 type ChatWindowProps = {
   messages: ChatMessage[];
@@ -12,6 +13,8 @@ type ChatWindowProps = {
   pendingPrompt?: string;
   onClearPendingPrompt?: () => void;
 };
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 function currentTime() {
   return new Intl.DateTimeFormat("es-CR", {
@@ -29,12 +32,16 @@ export function ChatWindow({
   onClearPendingPrompt
 }: ChatWindowProps) {
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [awaitingReply, setAwaitingReply] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const draft = pendingPrompt || message;
+  const canSend = (draft.trim().length > 0 || attachments.length > 0) && !isSending;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -52,21 +59,38 @@ export function ChatWindow({
     }
   }, [draft]);
 
+  function addFiles(fileList: FileList | null) {
+    if (!fileList) return;
+    const incoming = Array.from(fileList)
+      .filter((file) => file.size <= MAX_FILE_SIZE)
+      .map((file) => ({ name: file.name, size: file.size, type: file.type }));
+    if (incoming.length) {
+      setAttachments((prev) => [...prev, ...incoming]);
+    }
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function sendMessage() {
     const clean = draft.trim();
-    if (!clean || isSending) return;
+    if ((!clean && attachments.length === 0) || isSending) return;
 
+    const files = attachments;
     const userMessage: ChatMessage = {
       id: Date.now(),
       role: "user",
       text: clean,
-      time: currentTime()
+      time: currentTime(),
+      ...(files.length ? { files } : {})
     };
 
     const history = messages.slice(-10).map(({ role, text }) => ({ role, text }));
 
     setMessages((prev) => [...prev, userMessage]);
     setMessage("");
+    setAttachments([]);
     onClearPendingPrompt?.();
     setIsSending(true);
     setAwaitingReply(true);
@@ -95,7 +119,7 @@ export function ChatWindow({
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: clean, context: { history } })
+        body: JSON.stringify({ message: clean, context: { history }, files })
       });
 
       if (!response.ok || !response.body) {
@@ -154,7 +178,29 @@ export function ChatWindow({
   const hasMessages = messages.length > 0;
 
   return (
-    <main className="grid-bg flex min-w-0 flex-1 flex-col">
+    <main
+      className="grid-bg relative flex min-w-0 flex-1 flex-col"
+      onDragOver={(event) => {
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        setIsDragging(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsDragging(false);
+        addFiles(event.dataTransfer.files);
+      }}
+    >
+      {isDragging && (
+        <div className="pointer-events-none absolute inset-3 z-20 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-brand bg-surface/80">
+          <UploadCloud className="mb-3 h-10 w-10 text-brand" />
+          <p className="text-sm font-medium text-white">Suelta los archivos aquí</p>
+        </div>
+      )}
+
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-hidden px-5 py-5">
         <section
           ref={scrollRef}
@@ -169,8 +215,8 @@ export function ChatWindow({
                 ¿En qué te ayudo hoy, David?
               </h2>
               <p className="mt-2 max-w-md text-sm text-mutedText">
-                Escribe una instrucción o usa una de las acciones rápidas del panel
-                derecho para empezar.
+                Escribe una instrucción, arrastra un archivo o usa una de las acciones
+                rápidas del panel derecho para empezar.
               </p>
             </div>
           ) : (
@@ -182,6 +228,7 @@ export function ChatWindow({
                   time={item.time}
                   error={item.error}
                   chart={item.chart}
+                  files={item.files}
                 >
                   {item.text}
                 </MessageBubble>
@@ -192,35 +239,74 @@ export function ChatWindow({
           )}
         </section>
 
-        <div className="mt-5 flex items-end gap-3 rounded-xl border border-borderSoft bg-surface/85 px-4 py-3">
-          <button className="rounded-lg p-2 text-mutedText hover:bg-panelSoft hover:text-white">
-            <Paperclip size={22} />
-          </button>
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            rows={1}
-            onChange={(event) => {
-              onClearPendingPrompt?.();
-              setMessage(event.target.value);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-              }
-            }}
-            className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-mutedText"
-            placeholder="Escribe tu mensaje... (Shift+Enter para salto de línea)"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={isSending || !draft.trim()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-surface transition hover:bg-brandDark disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Enviar mensaje"
-          >
-            <SendHorizonal size={20} />
-          </button>
+        <div className="mt-5 rounded-xl border border-borderSoft bg-surface/85 px-4 py-3">
+          {attachments.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachments.map((file, index) => (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-2 rounded-lg border border-borderSoft bg-panel/70 px-3 py-2 text-xs"
+                >
+                  <FileText size={14} className="text-brand" />
+                  <span className="max-w-[160px] truncate text-white">{file.name}</span>
+                  <span className="text-mutedText">{formatFileSize(file.size)}</span>
+                  <button
+                    onClick={() => removeAttachment(index)}
+                    className="text-mutedText hover:text-red-400"
+                    aria-label={`Quitar ${file.name}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                addFiles(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-lg p-2 text-mutedText hover:bg-panelSoft hover:text-white"
+              aria-label="Adjuntar archivo"
+              title="Adjuntar archivo"
+            >
+              <Paperclip size={22} />
+            </button>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              rows={1}
+              onChange={(event) => {
+                onClearPendingPrompt?.();
+                setMessage(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  sendMessage();
+                }
+              }}
+              className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-mutedText"
+              placeholder="Escribe tu mensaje... (Shift+Enter para salto de línea)"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!canSend}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-surface transition hover:bg-brandDark disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Enviar mensaje"
+            >
+              <SendHorizonal size={20} />
+            </button>
+          </div>
         </div>
 
         <p className="pt-4 text-center text-xs text-mutedText">

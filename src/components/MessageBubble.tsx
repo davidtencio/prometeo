@@ -1,10 +1,11 @@
 "use client";
 
-import { FileSpreadsheet, Download, Eye } from "lucide-react";
+import { FileSpreadsheet, Download, Eye, FileText } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Markdown } from "./Markdown";
 import { ResultsTable } from "./ResultsTable";
-import type { ChartPayload } from "@/lib/chat-types";
+import { formatFileSize } from "@/lib/format";
+import type { Attachment, ChartPayload } from "@/lib/chat-types";
 
 // El gráfico (Recharts) es pesado y solo aparece tras una respuesta:
 // se carga de forma diferida para aligerar el bundle inicial.
@@ -23,7 +24,25 @@ type MessageBubbleProps = {
   withFile?: boolean;
   error?: boolean;
   chart?: ChartPayload;
+  files?: Attachment[];
 };
+
+function FileChips({ files }: { files: Attachment[] }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {files.map((file, index) => (
+        <div
+          key={`${file.name}-${index}`}
+          className="flex items-center gap-2 rounded-lg border border-borderSoft bg-surface/50 px-3 py-2 text-xs"
+        >
+          <FileText size={14} className="text-brand" />
+          <span className="max-w-[180px] truncate text-white">{file.name}</span>
+          <span className="text-mutedText">{formatFileSize(file.size)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function MessageBubble({
   role,
@@ -32,15 +51,20 @@ export function MessageBubble({
   withTable = false,
   withFile = false,
   error = false,
-  chart
+  chart,
+  files
 }: MessageBubbleProps) {
   const isUser = role === "user";
+  const hasFiles = files && files.length > 0;
 
   if (isUser) {
     return (
       <div className="flex justify-end gap-3">
         <div className="max-w-[720px] rounded-xl bg-panelSoft px-5 py-4 text-white shadow-soft">
-          <div className="leading-relaxed whitespace-pre-wrap">{children}</div>
+          {children ? (
+            <div className="leading-relaxed whitespace-pre-wrap">{children}</div>
+          ) : null}
+          {hasFiles && <FileChips files={files} />}
           <div className="mt-2 text-right text-xs text-mutedText">{time} ✓✓</div>
         </div>
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-sm font-bold text-surface">

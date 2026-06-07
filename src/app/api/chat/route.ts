@@ -54,9 +54,13 @@ function wantsChart(message: string) {
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
 
-  if (!body?.message) {
+  const hasMessage =
+    typeof body?.message === "string" && body.message.trim().length > 0;
+  const hasFiles = Array.isArray(body?.files) && body.files.length > 0;
+
+  if (!hasMessage && !hasFiles) {
     return NextResponse.json(
-      { error: "Debe enviar un campo 'message'." },
+      { error: "Debe enviar un mensaje o un archivo." },
       { status: 400 }
     );
   }
@@ -65,10 +69,23 @@ export async function POST(request: NextRequest) {
 
   // --- Modo demo: streaming simulado ---
   if (!openClawUrl) {
-    const showChart = wantsChart(body.message);
-    const content = showChart
-      ? "Aquí tienes el **comparativo de precios** del estudio de mercado (datos simulados).\n\n- Promedio: ₡1.352\n- Mediana: ₡1.350\n- Coeficiente de variación: 3,05%"
-      : "Respuesta simulada: configure `OPENCLAW_API_URL` para conectar este endpoint con Prometeo.";
+    const files = Array.isArray(body.files) ? body.files : [];
+    const showChart = wantsChart(body.message ?? "");
+
+    let content: string;
+    if (files.length) {
+      const names = files
+        .map((f: { name?: string }) => f?.name)
+        .filter(Boolean)
+        .join(", ");
+      content = `Recibí **${files.length}** archivo(s): ${names}.\n\nEn modo demo no se procesan; cuando conectes Prometeo (OpenClaw) podrá analizarlos.`;
+    } else if (showChart) {
+      content =
+        "Aquí tienes el **comparativo de precios** del estudio de mercado (datos simulados).\n\n- Promedio: ₡1.352\n- Mediana: ₡1.350\n- Coeficiente de variación: 3,05%";
+    } else {
+      content =
+        "Respuesta simulada: configure `OPENCLAW_API_URL` para conectar este endpoint con Prometeo.";
+    }
 
     const tokens = content.split(/(\s+)/);
 
