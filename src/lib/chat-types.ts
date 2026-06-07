@@ -25,3 +25,20 @@ export type ChatResponse = {
   content: string;
   chart?: ChartPayload;
 };
+
+export type ChatMessage = {
+  id: number;
+  role: "user" | "assistant";
+  text: string;
+  time: string;
+  error?: boolean;
+  chart?: ChartPayload;
+};
+
+export type Conversation = {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+};

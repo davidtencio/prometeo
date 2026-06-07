@@ -1,23 +1,59 @@
 "use client";
 
-import { FileText, LogOut, Plus, Scale, X } from "lucide-react";
+import { FileText, LogOut, MessageSquare, Plus, Trash2, X } from "lucide-react";
 import { Logo } from "./Logo";
-import { recentChats, recentFiles } from "@/lib/mock-data";
+import { recentFiles } from "@/lib/mock-data";
+import type { Conversation } from "@/lib/chat-types";
 
 type SidebarProps = {
-  onNewChat?: () => void;
+  conversations: Conversation[];
+  currentId: string | null;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onNewChat: () => void;
   open?: boolean;
   onClose?: () => void;
 };
 
-export function Sidebar({ onNewChat, open = false, onClose }: SidebarProps) {
+const dayFormat = new Intl.DateTimeFormat("es-CR", {
+  timeZone: "America/Costa_Rica",
+  day: "2-digit",
+  month: "2-digit"
+});
+const timeFormat = new Intl.DateTimeFormat("es-CR", {
+  timeZone: "America/Costa_Rica",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false
+});
+
+function formatConvTime(ts: number): string {
+  const today = dayFormat.format(new Date());
+  const that = dayFormat.format(new Date(ts));
+  return that === today ? timeFormat.format(new Date(ts)) : that;
+}
+
+export function Sidebar({
+  conversations,
+  currentId,
+  onSelect,
+  onDelete,
+  onNewChat,
+  open = false,
+  onClose
+}: SidebarProps) {
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     window.location.href = "/login";
   }
 
   function handleNewChat() {
-    onNewChat?.();
+    onNewChat();
+    onClose?.();
+  }
+
+  function handleSelect(id: string) {
+    onSelect(id);
     onClose?.();
   }
 
@@ -40,32 +76,53 @@ export function Sidebar({ onNewChat, open = false, onClose }: SidebarProps) {
           Chats recientes
         </p>
         <div className="space-y-2">
-          {recentChats.map((chat) => (
-            <button
-              key={`${chat.title}-${chat.subtitle}`}
-              onClick={onClose}
-              className={`w-full rounded-xl px-4 py-3 text-left transition ${
-                chat.active
-                  ? "border-l-4 border-brand bg-panelSoft"
-                  : "hover:bg-panelSoft/70"
-              }`}
-            >
-              <div className="flex gap-3">
-                <Scale className="mt-1 h-5 w-5 shrink-0 text-mutedText" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-white">{chat.title}</p>
-                    <span className="text-xs text-mutedText">{chat.time}</span>
+          {conversations.map((chat) => {
+            const active = chat.id === currentId;
+            return (
+              <div
+                key={chat.id}
+                className={`group relative flex items-center rounded-xl transition ${
+                  active
+                    ? "border-l-4 border-brand bg-panelSoft"
+                    : "hover:bg-panelSoft/70"
+                }`}
+              >
+                <button
+                  onClick={() => handleSelect(chat.id)}
+                  className="flex min-w-0 flex-1 gap-3 px-4 py-3 text-left"
+                >
+                  <MessageSquare className="mt-1 h-5 w-5 shrink-0 text-mutedText" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-sm font-medium text-white">
+                        {chat.title}
+                      </p>
+                      <span className="shrink-0 text-xs text-mutedText">
+                        {formatConvTime(chat.updatedAt)}
+                      </span>
+                    </div>
+                    <p className="truncate text-sm text-white/60">
+                      {chat.messages.length > 0
+                        ? `${chat.messages.length} mensaje${chat.messages.length === 1 ? "" : "s"}`
+                        : "Sin mensajes"}
+                    </p>
                   </div>
-                  <p className="truncate text-sm text-white/80">{chat.subtitle}</p>
-                </div>
+                </button>
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(chat.id);
+                  }}
+                  className="mr-2 rounded-lg p-2 text-mutedText opacity-0 transition hover:bg-surface hover:text-red-400 focus:opacity-100 group-hover:opacity-100"
+                  aria-label="Eliminar conversación"
+                  title="Eliminar conversación"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
-        <button className="mt-3 text-sm text-sky-200/80 hover:text-sky-100">
-          Ver todos los chats
-        </button>
       </section>
 
       <section className="mt-8">

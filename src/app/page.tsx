@@ -5,22 +5,31 @@ import { ChatWindow } from "@/components/ChatWindow";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
+import { useConversations } from "@/hooks/useConversations";
 
 export default function Home() {
   const [pendingPrompt, setPendingPrompt] = useState("");
-  const [chatKey, setChatKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
 
-  function handleNewChat() {
-    setChatKey((key) => key + 1);
-    setPendingPrompt("");
-  }
+  const {
+    conversations,
+    currentId,
+    currentMessages,
+    setCurrentMessages,
+    newChat,
+    selectChat,
+    deleteChat
+  } = useConversations();
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface text-white">
       <Sidebar
-        onNewChat={handleNewChat}
+        conversations={conversations}
+        currentId={currentId}
+        onSelect={selectChat}
+        onDelete={deleteChat}
+        onNewChat={newChat}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -32,7 +41,9 @@ export default function Home() {
         />
         <div className="flex min-h-0 flex-1">
           <ChatWindow
-            key={chatKey}
+            key={currentId ?? "loading"}
+            messages={currentMessages}
+            setMessages={setCurrentMessages}
             pendingPrompt={pendingPrompt}
             onClearPendingPrompt={() => setPendingPrompt("")}
           />

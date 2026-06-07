@@ -2,21 +2,15 @@
 
 import { Paperclip, SendHorizonal, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { MessageBubble } from "./MessageBubble";
-import type { ChartPayload } from "@/lib/chat-types";
+import type { ChartPayload, ChatMessage } from "@/lib/chat-types";
 
 type ChatWindowProps = {
+  messages: ChatMessage[];
+  setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   pendingPrompt?: string;
   onClearPendingPrompt?: () => void;
-};
-
-type Message = {
-  id: number;
-  role: "user" | "assistant";
-  text: string;
-  time: string;
-  error?: boolean;
-  chart?: ChartPayload;
 };
 
 function currentTime() {
@@ -28,9 +22,13 @@ function currentTime() {
   }).format(new Date());
 }
 
-export function ChatWindow({ pendingPrompt, onClearPendingPrompt }: ChatWindowProps) {
+export function ChatWindow({
+  messages,
+  setMessages,
+  pendingPrompt,
+  onClearPendingPrompt
+}: ChatWindowProps) {
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [awaitingReply, setAwaitingReply] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -58,7 +56,7 @@ export function ChatWindow({ pendingPrompt, onClearPendingPrompt }: ChatWindowPr
     const clean = draft.trim();
     if (!clean || isSending) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now(),
       role: "user",
       text: clean,
@@ -76,7 +74,7 @@ export function ChatWindow({ pendingPrompt, onClearPendingPrompt }: ChatWindowPr
     let assistantId: number | null = null;
     let acc = "";
 
-    function upsertAssistant(update: Partial<Message>) {
+    function upsertAssistant(update: Partial<ChatMessage>) {
       if (assistantId === null) {
         assistantId = Date.now() + 1;
         const id = assistantId;
