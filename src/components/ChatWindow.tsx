@@ -167,7 +167,7 @@ export function ChatWindow({ pendingPrompt, onClearPendingPrompt }: ChatWindowPr
                 <Sparkles className="h-8 w-8 text-brand" />
               </div>
               <h2 className="text-lg font-semibold text-white">
-                ¿En qué te ayudo hoy?
+                ¿En qué te ayudo hoy, David?
               </h2>
               <p className="mt-2 max-w-md text-sm text-mutedText">
                 Escribe una instrucción o usa una de las acciones rápidas del panel
