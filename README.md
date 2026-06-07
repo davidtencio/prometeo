@@ -48,6 +48,7 @@ Abrir http://localhost:3000
 | `OPENCLAW_API_KEY` | Token enviado como `Authorization: Bearer ...` hacia OpenClaw.        |
 | `APP_PASSWORD`     | Contraseña de acceso a la web app.                                    |
 | `AUTH_SECRET`      | Secreto para firmar la cookie de sesión (largo y aleatorio).          |
+| `TOTP_SECRET`      | Secreto base32 para 2FA (opcional). Si se define, el login pide código. |
 
 Generar `AUTH_SECRET`:
 
@@ -65,6 +66,20 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Pendiente al conectar la mini PC: proteger el túnel (token / Cloudflare Access) y
 cifrar el disco de la mini PC.
+
+## Flujo de trabajo (ramas + PR)
+
+La rama `main` está protegida: los cambios entran por **Pull Request** y el **CI
+debe pasar** (typecheck + lint + test + build) antes de mergear.
+
+1. Crear una rama: `git switch -c tipo/descripcion` (ej. `feat/persistencia`)
+2. Commitear y subir: `git push -u origin tipo/descripcion`
+3. Abrir PR: `gh pr create --fill` (o desde GitHub)
+4. Esperar a que el CI quede en verde
+5. Mergear: `gh pr merge --squash --delete-branch`
+6. Volver a main: `git switch main && git pull`
+
+Prefijos sugeridos: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`.
 
 ## Despliegue en Vercel
 
