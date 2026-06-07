@@ -22,6 +22,8 @@ export default function Home() {
     deleteChat
   } = useConversations();
 
+  const currentTitle = conversations.find((c) => c.id === currentId)?.title;
+
   return (
     <div className="flex h-screen overflow-hidden bg-surface text-white">
       <Sidebar
@@ -36,6 +38,7 @@ export default function Home() {
 
       <section className="flex min-w-0 flex-1 flex-col">
         <TopBar
+          title={currentTitle}
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenActions={() => setActionsOpen(true)}
         />
