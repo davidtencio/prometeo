@@ -44,9 +44,9 @@ export default function LoginPage() {
           <Logo />
         </div>
 
-        <h1 className="text-center text-lg font-semibold">Iniciar sesión</h1>
+        <h1 className="text-center text-xl font-bold text-white">¡Hola David!!</h1>
         <p className="mt-1 text-center text-sm text-mutedText">
-          Acceso privado al asistente.
+          Bienvenido. Iniciá sesión para acceder al asistente.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-4">
