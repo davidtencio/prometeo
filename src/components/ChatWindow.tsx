@@ -1,6 +1,16 @@
 "use client";
 
-import { FileText, Paperclip, SendHorizonal, Sparkles, UploadCloud, X } from "lucide-react";
+import {
+  ArrowDown,
+  FileText,
+  Paperclip,
+  RefreshCw,
+  SendHorizonal,
+  Sparkles,
+  Square,
+  UploadCloud,
+  X
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { MessageBubble } from "./MessageBubble";
@@ -36,19 +46,25 @@ export function ChatWindow({
   const [isSending, setIsSending] = useState(false);
   const [awaitingReply, setAwaitingReply] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const draft = pendingPrompt || message;
   const canSend = (draft.trim().length > 0 || attachments.length > 0) && !isSending;
 
-  useEffect(() => {
+  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
-      behavior: "smooth"
+      behavior
     });
-  }, [messages, awaitingReply]);
+  }
+
+  useEffect(() => {
+    if (atBottom) scrollToBottom();
+  }, [messages, awaitingReply, atBottom]);
 
   // Autoajuste de altura del textarea.
   useEffect(() => {
@@ -58,6 +74,13 @@ export function ChatWindow({
       el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
     }
   }, [draft]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAtBottom(distance < 80);
+  }
 
   function addFiles(fileList: FileList | null) {
     if (!fileList) return;
@@ -73,27 +96,21 @@ export function ChatWindow({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function sendMessage() {
-    const clean = draft.trim();
-    if ((!clean && attachments.length === 0) || isSending) return;
+  function stopGeneration() {
+    abortRef.current?.abort();
+  }
 
-    const files = attachments;
-    const userMessage: ChatMessage = {
-      id: Date.now(),
-      role: "user",
-      text: clean,
-      time: currentTime(),
-      ...(files.length ? { files } : {})
-    };
-
-    const history = messages.slice(-10).map(({ role, text }) => ({ role, text }));
-
-    setMessages((prev) => [...prev, userMessage]);
-    setMessage("");
-    setAttachments([]);
-    onClearPendingPrompt?.();
+  async function streamAssistant(
+    promptText: string,
+    history: { role: string; text: string }[],
+    files: Attachment[]
+  ) {
     setIsSending(true);
     setAwaitingReply(true);
+    setAtBottom(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     let assistantId: number | null = null;
     let acc = "";
@@ -119,7 +136,8 @@ export function ChatWindow({
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: clean, context: { history }, files })
+        body: JSON.stringify({ message: promptText, context: { history }, files }),
+        signal: controller.signal
       });
 
       if (!response.ok || !response.body) {
@@ -156,26 +174,82 @@ export function ChatWindow({
         }
       }
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          text:
-            error instanceof Error
-              ? error.message
-              : "Ocurrió un error al contactar al asistente.",
-          time: currentTime(),
-          error: true
-        }
-      ]);
+      // El abort del usuario no es un error: conservamos lo recibido.
+      if (error instanceof DOMException && error.name === "AbortError") {
+        if (assistantId === null) setAwaitingReply(false);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            role: "assistant",
+            text:
+              error instanceof Error
+                ? error.message
+                : "Ocurrió un error al contactar al asistente.",
+            time: currentTime(),
+            error: true
+          }
+        ]);
+      }
     } finally {
       setIsSending(false);
       setAwaitingReply(false);
+      abortRef.current = null;
     }
   }
 
+  async function sendMessage() {
+    const clean = draft.trim();
+    if ((!clean && attachments.length === 0) || isSending) return;
+
+    const files = attachments;
+    const userMessage: ChatMessage = {
+      id: Date.now(),
+      role: "user",
+      text: clean,
+      time: currentTime(),
+      ...(files.length ? { files } : {})
+    };
+
+    const history = messages.slice(-10).map(({ role, text }) => ({ role, text }));
+
+    setMessages((prev) => [...prev, userMessage]);
+    setMessage("");
+    setAttachments([]);
+    onClearPendingPrompt?.();
+
+    await streamAssistant(clean, history, files);
+  }
+
+  function regenerate() {
+    if (isSending) return;
+    // Último mensaje del usuario.
+    let idx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) return;
+
+    const lastUser = messages[idx];
+    const base = messages.slice(0, idx + 1); // descarta la respuesta anterior
+    setMessages(base);
+
+    const history = base
+      .slice(0, -1)
+      .slice(-10)
+      .map(({ role, text }) => ({ role, text }));
+
+    void streamAssistant(lastUser.text, history, lastUser.files ?? []);
+  }
+
   const hasMessages = messages.length > 0;
+  const lastMessage = messages[messages.length - 1];
+  const canRegenerate =
+    !isSending && hasMessages && lastMessage?.role === "assistant" && !lastMessage.error;
 
   return (
     <main
@@ -204,7 +278,8 @@ export function ChatWindow({
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-hidden px-5 py-5">
         <section
           ref={scrollRef}
-          className="glass-panel flex-1 overflow-y-auto rounded-2xl p-5"
+          onScroll={handleScroll}
+          className="glass-panel relative flex-1 overflow-y-auto rounded-2xl p-5"
         >
           {!hasMessages && !awaitingReply ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
@@ -235,77 +310,112 @@ export function ChatWindow({
               ))}
 
               {awaitingReply && <TypingIndicator />}
+
+              {canRegenerate && (
+                <div className="flex justify-start pl-16">
+                  <button
+                    onClick={regenerate}
+                    className="flex items-center gap-2 rounded-lg border border-borderSoft px-3 py-2 text-xs font-medium text-mutedText transition hover:bg-panelSoft hover:text-white"
+                  >
+                    <RefreshCw size={14} />
+                    Regenerar respuesta
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
 
-        <div className="mt-5 rounded-xl border border-borderSoft bg-surface/85 px-4 py-3">
-          {attachments.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {attachments.map((file, index) => (
-                <div
-                  key={`${file.name}-${index}`}
-                  className="flex items-center gap-2 rounded-lg border border-borderSoft bg-panel/70 px-3 py-2 text-xs"
-                >
-                  <FileText size={14} className="text-brand" />
-                  <span className="max-w-[160px] truncate text-white">{file.name}</span>
-                  <span className="text-mutedText">{formatFileSize(file.size)}</span>
-                  <button
-                    onClick={() => removeAttachment(index)}
-                    className="text-mutedText hover:text-red-400"
-                    aria-label={`Quitar ${file.name}`}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
+        <div className="relative">
+          {!atBottom && hasMessages && (
+            <button
+              onClick={() => scrollToBottom()}
+              className="absolute -top-12 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-borderSoft bg-panel text-white shadow-soft transition hover:bg-panelSoft"
+              aria-label="Bajar al último mensaje"
+            >
+              <ArrowDown size={18} />
+            </button>
           )}
 
-          <div className="flex items-end gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                addFiles(event.target.files);
-                event.target.value = "";
-              }}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg p-2 text-mutedText hover:bg-panelSoft hover:text-white"
-              aria-label="Adjuntar archivo"
-              title="Adjuntar archivo"
-            >
-              <Paperclip size={22} />
-            </button>
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              rows={1}
-              onChange={(event) => {
-                onClearPendingPrompt?.();
-                setMessage(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  sendMessage();
-                }
-              }}
-              className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-mutedText"
-              placeholder="Escribe tu mensaje... (Shift+Enter para salto de línea)"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!canSend}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-surface transition hover:bg-brandDark disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Enviar mensaje"
-            >
-              <SendHorizonal size={20} />
-            </button>
+          <div className="mt-5 rounded-xl border border-borderSoft bg-surface/85 px-4 py-3">
+            {attachments.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {attachments.map((file, index) => (
+                  <div
+                    key={`${file.name}-${index}`}
+                    className="flex items-center gap-2 rounded-lg border border-borderSoft bg-panel/70 px-3 py-2 text-xs"
+                  >
+                    <FileText size={14} className="text-brand" />
+                    <span className="max-w-[160px] truncate text-white">{file.name}</span>
+                    <span className="text-mutedText">{formatFileSize(file.size)}</span>
+                    <button
+                      onClick={() => removeAttachment(index)}
+                      className="text-mutedText hover:text-red-400"
+                      aria-label={`Quitar ${file.name}`}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-end gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  addFiles(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg p-2 text-mutedText hover:bg-panelSoft hover:text-white"
+                aria-label="Adjuntar archivo"
+                title="Adjuntar archivo"
+              >
+                <Paperclip size={22} />
+              </button>
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                rows={1}
+                onChange={(event) => {
+                  onClearPendingPrompt?.();
+                  setMessage(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-mutedText"
+                placeholder="Escribe tu mensaje... (Shift+Enter para salto de línea)"
+              />
+              {isSending ? (
+                <button
+                  onClick={stopGeneration}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-panelSoft text-white transition hover:bg-panel"
+                  aria-label="Detener generación"
+                  title="Detener generación"
+                >
+                  <Square size={18} className="fill-current" />
+                </button>
+              ) : (
+                <button
+                  onClick={sendMessage}
+                  disabled={!canSend}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-surface transition hover:bg-brandDark disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Enviar mensaje"
+                >
+                  <SendHorizonal size={20} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

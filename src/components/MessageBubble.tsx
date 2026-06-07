@@ -1,7 +1,8 @@
 "use client";
 
-import { FileSpreadsheet, Download, Eye, FileText } from "lucide-react";
+import { Check, Copy, FileSpreadsheet, Download, Eye, FileText } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import { Markdown } from "./Markdown";
 import { ResultsTable } from "./ResultsTable";
 import { formatFileSize } from "@/lib/format";
@@ -26,6 +27,26 @@ type MessageBubbleProps = {
   chart?: ChartPayload;
   files?: Attachment[];
 };
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!text) return null;
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="transition hover:text-white"
+      aria-label="Copiar mensaje"
+      title={copied ? "Copiado" : "Copiar"}
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+}
 
 function FileChips({ files }: { files: Attachment[] }) {
   return (
@@ -56,6 +77,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const hasFiles = files && files.length > 0;
+  const text = typeof children === "string" ? children : "";
 
   if (isUser) {
     return (
@@ -65,7 +87,10 @@ export function MessageBubble({
             <div className="leading-relaxed whitespace-pre-wrap">{children}</div>
           ) : null}
           {hasFiles && <FileChips files={files} />}
-          <div className="mt-2 text-right text-xs text-mutedText">{time} ✓✓</div>
+          <div className="mt-2 flex items-center justify-end gap-2 text-xs text-mutedText">
+            <CopyButton text={text} />
+            <span>{time} ✓✓</span>
+          </div>
         </div>
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-sm font-bold text-surface">
           DT
@@ -113,7 +138,13 @@ export function MessageBubble({
             </button>
           </div>
         )}
-        <div className="mt-2 text-right text-xs text-mutedText">{time}</div>
+        {!error && (
+          <div className="mt-2 flex items-center justify-end gap-2 text-xs text-mutedText">
+            <CopyButton text={text} />
+            <span>{time}</span>
+          </div>
+        )}
+        {error && <div className="mt-2 text-right text-xs text-mutedText">{time}</div>}
       </div>
     </div>
   );
