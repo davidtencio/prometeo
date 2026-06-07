@@ -1,9 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Prometeo - Asistente de Compras",
-  description: "Prototipo de web app para conversar con un agente Prometeo local."
+  description: "Asistente de compras institucionales.",
+  appleWebApp: {
+    capable: true,
+    title: "Prometeo",
+    statusBarStyle: "black-translucent"
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0c1117"
 };
 
 export default function RootLayout({
@@ -13,7 +23,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   );
 }
