@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 /** @type {import('next').NextConfig} */
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV !== "production";
 
 const csp = [
@@ -33,6 +37,9 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Fija la raíz del proyecto (hay otro lockfile en el home del usuario que
+  // confundía la detección automática de Turbopack en Next 16).
+  turbopack: { root: __dirname },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   }
