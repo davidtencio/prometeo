@@ -18,3 +18,5 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # Falla solo ante vulnerabilidades high/critical (las moderate no rompen el CI).
+      - run: npm audit --audit-level=high
